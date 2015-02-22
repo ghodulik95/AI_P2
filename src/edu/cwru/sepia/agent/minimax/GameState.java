@@ -4,8 +4,12 @@ import edu.cwru.sepia.action.Action;
 import edu.cwru.sepia.action.ActionType;
 import edu.cwru.sepia.action.DirectedAction;
 import edu.cwru.sepia.action.TargetedAction;
+import edu.cwru.sepia.environment.model.state.ResourceNode.ResourceView;
 import edu.cwru.sepia.environment.model.state.State;
+import edu.cwru.sepia.environment.model.state.Template.TemplateView;
 import edu.cwru.sepia.environment.model.state.Unit;
+import edu.cwru.sepia.environment.model.state.Unit.UnitView;
+import edu.cwru.sepia.environment.model.state.UnitTemplate.UnitTemplateView;
 import edu.cwru.sepia.util.Direction;
 
 import java.util.*;
@@ -19,6 +23,82 @@ import java.util.*;
  * but do not delete or change the signatures of the provided methods.
  */
 public class GameState {
+
+	private int xExtent;
+	private int yExtent;
+	private List<UnitInfo> mmplayers;
+	private List<UnitInfo> archers;
+	private Set<ResourceInfo> resources;
+	
+	private class ResourceInfo{
+		public final int x;
+		public final int y;
+		
+		public ResourceInfo(int x, int y){
+			this.x = x;
+			this.y = y;
+		}
+		
+		@Override
+		public int hashCode(){
+			return Integer.valueOf(x).hashCode() + Integer.valueOf(y).hashCode()*37;
+		}
+		@Override
+		public boolean equals(Object o){
+			if(o instanceof ResourceInfo){
+				ResourceInfo ri = (ResourceInfo) o;
+				return ri.x == x && ri.y == y;
+			}
+			return false;
+		}
+	}
+	
+	private class UnitInfo{
+		public final int x;
+		public final int y;
+		public final int range;
+		public final int attk;
+		public final int health;
+		
+		public UnitInfo(int x, int y, int range, int attk, int health){
+			this.x = x;
+			this.y = y;
+			this.range = range;
+			this.attk = attk;
+			this.health = health;
+		}
+		
+	}
+	
+	private List<UnitInfo> extractUnitInfo(List<UnitView> units){
+		List<UnitInfo> ret = new LinkedList<UnitInfo>();
+		Iterator<UnitView> it = units.iterator();
+		UnitView cur;
+		UnitTemplateView curTemp;
+		while(it.hasNext()){
+			cur = it.next();
+			curTemp = cur.getTemplateView();
+			ret.add(
+					new UnitInfo(cur.getXPosition(), 
+							cur.getYPosition(), 
+							curTemp.getRange(), 
+							curTemp.getBasicAttack(), 
+							curTemp.getBaseHealth())
+					);
+		}
+		return ret;
+	}
+	
+	private Set<ResourceInfo> extractResourceInfo(State.StateView state){
+		Set<ResourceInfo> ret = new HashSet<ResourceInfo>();
+		Iterator<Integer> it = state.getAllResourceIds().iterator();
+		ResourceView cur;
+		while(it.hasNext()){
+			cur = state.getResourceNode(it.next());
+			ret.add( new ResourceInfo(cur.getXPosition(), cur.getYPosition()));
+		}
+		return ret;
+	}
 
     /**
      * You will implement this constructor. It will
@@ -42,6 +122,11 @@ public class GameState {
      * @param state Current state of the episode
      */
     public GameState(State.StateView state) {
+    	xExtent = state.getXExtent();
+    	yExtent = state.getYExtent();
+    	mmplayers = extractUnitInfo(state.getUnits(0));
+    	archers = extractUnitInfo(state.getUnits(1));
+    	resources = extractResourceInfo(state);
     }
 
     /**
