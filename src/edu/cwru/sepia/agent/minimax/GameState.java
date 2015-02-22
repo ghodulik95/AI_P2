@@ -26,9 +26,10 @@ public class GameState {
 
 	private int xExtent;
 	private int yExtent;
-	private List<UnitInfo> mmplayers;
+	private List<UnitInfo> mmUnits;
 	private List<UnitInfo> archers;
 	private Set<ResourceInfo> resources;
+	private State.StateView gameState;
 	
 	private class ResourceInfo{
 		public final int x;
@@ -124,9 +125,10 @@ public class GameState {
     public GameState(State.StateView state) {
     	xExtent = state.getXExtent();
     	yExtent = state.getYExtent();
-    	mmplayers = extractUnitInfo(state.getUnits(0));
+    	mmUnits = extractUnitInfo(state.getUnits(0));
     	archers = extractUnitInfo(state.getUnits(1));
     	resources = extractResourceInfo(state);
+    	gameState = state;
     }
 
     /**
@@ -148,7 +150,13 @@ public class GameState {
      * @return The weighted linear combination of the features
      */
     public double getUtility() {
-        return 0.0;
+        double ret = 0;
+        for(UnitInfo mmInfo: mmUnits){
+        	for(UnitInfo archInfo : archers){
+        		ret -= Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y);
+        	}
+        }
+        return ret;
     }
 
     /**
