@@ -3,6 +3,7 @@ package edu.cwru.sepia.agent.minimax;
 import edu.cwru.sepia.action.Action;
 import edu.cwru.sepia.action.ActionType;
 import edu.cwru.sepia.action.DirectedAction;
+import edu.cwru.sepia.action.LocatedAction;
 import edu.cwru.sepia.action.TargetedAction;
 import edu.cwru.sepia.environment.model.state.ResourceNode.ResourceView;
 import edu.cwru.sepia.environment.model.state.State;
@@ -55,13 +56,15 @@ public class GameState {
 	}
 	
 	private class UnitInfo{
+		public final int id;
 		public final int x;
 		public final int y;
 		public final int range;
 		public final int attk;
 		public final int health;
 		
-		public UnitInfo(int x, int y, int range, int attk, int health){
+		public UnitInfo(int id, int x, int y, int range, int attk, int health){
+			this.id = id;
 			this.x = x;
 			this.y = y;
 			this.range = range;
@@ -80,7 +83,9 @@ public class GameState {
 			cur = it.next();
 			curTemp = cur.getTemplateView();
 			ret.add(
-					new UnitInfo(cur.getXPosition(), 
+					new UnitInfo(
+							curTemp.getID(),
+							cur.getXPosition(), 
 							cur.getYPosition(), 
 							curTemp.getRange(), 
 							curTemp.getBasicAttack(), 
@@ -176,6 +181,16 @@ public class GameState {
      * @return All possible actions and their associated resulting game state
      */
     public List<GameStateChild> getChildren() {
-        return null;
+    	List<GameStateChild> ret = new LinkedList<GameStateChild>();
+    	Map<Integer, Action> actions = new HashMap<Integer, Action>();
+    	//if mmturn
+    	for( UnitInfo unit : mmUnits ){
+	    	for(Direction direction : Direction.values()){
+	    		actions.put(unit.id, Action.createPrimitiveMove(unit.id, direction));
+	    	}
+    	}
+    	GameStateChild g = new GameStateChild(gameState);
+    	ret.add(g);
+    	return ret;
     }
 }
