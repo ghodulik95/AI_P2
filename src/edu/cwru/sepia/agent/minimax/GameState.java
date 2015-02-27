@@ -30,6 +30,7 @@ public class GameState {
 	private List<UnitInfo> mmUnits;
 	private List<UnitInfo> archers;
 	private Set<ResourceInfo> resources;
+	private int turnNumber;
 	
 	private class ResourceInfo{
 		public final int x;
@@ -132,14 +133,16 @@ public class GameState {
     	mmUnits = extractUnitInfo(state.getUnits(0));
     	archers = extractUnitInfo(state.getUnits(1));
     	resources = extractResourceInfo(state);
+    	turnNumber = state.getTurnNumber();
     }
     
-    public GameState(int xExtent, int yExtent, List<UnitInfo> mmUnits, List<UnitInfo> archers, Set<ResourceInfo> resources){
+    public GameState(int xExtent, int yExtent, List<UnitInfo> mmUnits, List<UnitInfo> archers, Set<ResourceInfo> resources, int turnNumber){
     	this.xExtent = xExtent;
     	this.yExtent = yExtent;
     	this.mmUnits = mmUnits;
     	this.archers = archers;
     	this.resources = resources;
+    	this.turnNumber = turnNumber;
     }
 
     /**
@@ -169,6 +172,10 @@ public class GameState {
         }
         return ret;
     }
+    
+    public boolean isMMTurn(){
+    	return this.turnNumber % 2 == 1;
+    }
 
     /**
      * You will implement this function.
@@ -194,10 +201,19 @@ public class GameState {
     	Action unit2Actions[] = null;
     	UnitInfo unit2Positions[] = null;
     	int index = 0;
-    	UnitInfo unit1 = mmUnits.get(0);
+    	UnitInfo unit1 = null;
+    	if(isMMTurn()){
+    		unit1 = mmUnits.get(0);
+    	}else{
+    		unit1 = archers.get(0);
+    	}
     	UnitInfo unit2 = null;
     	if(mmUnits.size() > 1){
-    		unit2 = mmUnits.get(1);
+    		if(isMMTurn()){
+    			unit2 = mmUnits.get(1);
+    		}else{
+    			unit2 = archers.get(1);
+    		}
     		unit2Actions = new Action[10];
     		unit2Positions = new UnitInfo[10];
     	}
@@ -225,14 +241,16 @@ public class GameState {
 	    			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
 	    			newMMUnits.add(nextUnit1);
 	    			newMMUnits.add(nextUnit2);
-	    			GameStateChild child = new GameStateChild(actions, new GameState(this.xExtent, this.yExtent, newMMUnits, this.archers, this.resources));
+	    			GameStateChild child = new GameStateChild(actions, new GameState(this.xExtent, this.yExtent, newMMUnits, 
+	    					this.archers, this.resources, this.turnNumber + 1));
 	    			ret.add(child);
 	    		}
     		}else{
     			actions.put(nextUnit1.id, curUnit1Action);
     			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
     			newMMUnits.add(nextUnit1);
-    			GameStateChild child = new GameStateChild(actions, new GameState(this.xExtent, this.yExtent, newMMUnits, this.archers, this.resources));
+    			GameStateChild child = new GameStateChild(actions, new GameState(this.xExtent, this.yExtent, newMMUnits, 
+    					this.archers, this.resources, this.turnNumber + 1));
     			ret.add(child);
     		}
     		actions.clear();
