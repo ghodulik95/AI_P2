@@ -30,7 +30,6 @@ public class GameState {
 	private List<UnitInfo> mmUnits;
 	private List<UnitInfo> archers;
 	private Set<ResourceInfo> resources;
-	private State.StateView gameState;
 	
 	private class ResourceInfo{
 		public final int x;
@@ -133,7 +132,14 @@ public class GameState {
     	mmUnits = extractUnitInfo(state.getUnits(0));
     	archers = extractUnitInfo(state.getUnits(1));
     	resources = extractResourceInfo(state);
-    	gameState = state;
+    }
+    
+    public GameState(int xExtent, int yExtent, List<UnitInfo> mmUnits, List<UnitInfo> archers, Set<ResourceInfo> resources){
+    	this.xExtent = xExtent;
+    	this.yExtent = yExtent;
+    	this.mmUnits = mmUnits;
+    	this.archers = archers;
+    	this.resources = resources;
     }
 
     /**
@@ -183,16 +189,54 @@ public class GameState {
     public List<GameStateChild> getChildren() {
     	List<GameStateChild> ret = new LinkedList<GameStateChild>();
     	Map<Integer, Action> actions = new HashMap<Integer, Action>();
-    	//if mmturn
-    	for( UnitInfo unit : mmUnits ){
-	    	for(Direction direction : Direction.values()){
-	    		actions.put(unit.id, Action.createPrimitiveMove(unit.id, direction));
-	    	}
+    	Action unit1Actions[] = new Action[10];
+    	UnitInfo unit1Positions[] = new UnitInfo[10];
+    	Action unit2Actions[] = null;
+    	UnitInfo unit2Positions[] = null;
+    	int index = 0;
+    	UnitInfo unit1 = mmUnits.get(0);
+    	UnitInfo unit2 = null;
+    	if(mmUnits.size() > 1){
+    		unit2 = mmUnits.get(1);
+    		unit2Actions = new Action[10];
+    		unit2Positions = new UnitInfo[10];
     	}
-    	//State.StateView s = new State.StateView(null, xExtent);
-    	//We want the stateview OR GameState after actions has been performed on the current stateview
-    	GameStateChild g = new GameStateChild(actions, this);
-    	ret.add(g);
+    	for( Direction direction : Direction.values()){
+    		unit1Actions[index] = Action.createPrimitiveMove(unit1.id, direction);
+    		unit1Positions[index] = new UnitInfo(unit1.id, unit1.x + direction.xComponent(), unit1.y + direction.yComponent(), 
+    				unit1.range, unit1.attk, unit1.health);
+    		if(unit2 != null){
+    			unit2Actions[index] = Action.createPrimitiveMove(unit1.id, direction);
+        		unit2Positions[index] = new UnitInfo(unit2.id, unit2.x + direction.xComponent(), unit2.y + direction.yComponent(), 
+        				unit2.range, unit2.attk, unit2.health);
+    		}
+    		index++;
+    	}
+    	for(int unit1Move = 0; unit1Move < 10 && unit1Actions[unit1Move] != null; unit1Move++){
+    		Action curUnit1Action = unit1Actions[unit1Move];
+    		UnitInfo nextUnit1 = unit1Positions[unit1Move];
+    		if(unit2 != null){
+	    		for( int unit2Move = 0; unit2Move < 10 && unit2Actions[unit2Move] != null; unit2Move++){
+	    			Action curUnit2Action = unit2Actions[unit2Move];
+	    			UnitInfo nextUnit2 = unit2Positions[unit2Move];
+	    			actions.put(nextUnit1.id, curUnit1Action);
+	    			actions.put(nextUnit2.id, curUnit2Action);
+	    			
+	    			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
+	    			newMMUnits.add(nextUnit1);
+	    			newMMUnits.add(nextUnit2);
+	    			GameStateChild child = new GameStateChild(actions, new GameState(this.xExtent, this.yExtent, newMMUnits, this.archers, this.resources));
+	    			ret.add(child);
+	    		}
+    		}else{
+    			actions.put(nextUnit1.id, curUnit1Action);
+    			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
+    			newMMUnits.add(nextUnit1);
+    			GameStateChild child = new GameStateChild(actions, new GameState(this.xExtent, this.yExtent, newMMUnits, this.archers, this.resources));
+    			ret.add(child);
+    		}
+    		actions.clear();
+    	}
     	
     	return ret;
     }
