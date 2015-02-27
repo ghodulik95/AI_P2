@@ -165,16 +165,14 @@ public class GameState {
      */
     public double getUtility() {
         double ret = 0;
-        for(UnitInfo mmInfo: mmUnits){
-        	for(UnitInfo archInfo : archers){
-        		ret -= Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y);
-        	}
+        for(UnitInfo archer : archers){
+        	ret += archer.health;
         }
-        return ret;
+        return -ret;
     }
     
     public boolean isMMTurn(){
-    	return this.turnNumber % 2 == 1;
+    	return this.turnNumber % 2 == 0;
     }
 
     /**
