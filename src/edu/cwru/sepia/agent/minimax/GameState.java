@@ -61,15 +61,17 @@ public class GameState {
 		public final int y;
 		public final int range;
 		public final int attk;
-		public final int health;
+		public final int curHealth;
+		public final int baseHealth;
 		
-		public UnitInfo(int id, int x, int y, int range, int attk, int health){
+		public UnitInfo(int id, int x, int y, int range, int attk, int curHealth, int baseHealth){
 			this.id = id;
 			this.x = x;
 			this.y = y;
 			this.range = range;
 			this.attk = attk;
-			this.health = health;
+			this.curHealth = curHealth;
+			this.baseHealth = baseHealth;
 		}
 		
 	}
@@ -89,6 +91,7 @@ public class GameState {
 							cur.getYPosition(), 
 							curTemp.getRange(), 
 							curTemp.getBasicAttack(), 
+							cur.getHP(),
 							curTemp.getBaseHealth())
 					);
 		}
@@ -165,10 +168,11 @@ public class GameState {
      */
     public double getUtility() {
         double ret = 0;
-        for(UnitInfo archer : archers){
-        	ret += archer.health;
+        for(UnitInfo unit : mmUnits){
+        	ret += unit.health;
         }
-        return -ret;
+        System.out.println(ret);
+        return ret;
     }
     
     public boolean isMMTurn(){
@@ -218,11 +222,11 @@ public class GameState {
     	for( Direction direction : Direction.values()){
     		unit1Actions[index] = Action.createPrimitiveMove(unit1.id, direction);
     		unit1Positions[index] = new UnitInfo(unit1.id, unit1.x + direction.xComponent(), unit1.y + direction.yComponent(), 
-    				unit1.range, unit1.attk, unit1.health);
+    				unit1.range, unit1.attk, unit1.curHealth, unit2.baseHealth);
     		if(unit2 != null){
     			unit2Actions[index] = Action.createPrimitiveMove(unit1.id, direction);
         		unit2Positions[index] = new UnitInfo(unit2.id, unit2.x + direction.xComponent(), unit2.y + direction.yComponent(), 
-        				unit2.range, unit2.attk, unit2.health);
+        				unit2.range, unit2.attk, unit2.curHealth, unit2.baseHealth);
     		}
     		index++;
     	}
