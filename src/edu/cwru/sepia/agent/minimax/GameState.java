@@ -189,8 +189,11 @@ public class GameState {
 	    		actions.put(unit.id, Action.createPrimitiveMove(unit.id, direction));
 	    	}
     	}
-    	GameStateChild g = new GameStateChild(gameState);
+    	//State.StateView s = new State.StateView(null, xExtent);
+    	//We want the stateview OR GameState after actions has been performed on the current stateview
+    	GameStateChild g = new GameStateChild(actions, this);
     	ret.add(g);
+    	
     	return ret;
     }
 }
