@@ -63,8 +63,9 @@ public class GameState {
 		public final int attk;
 		public final int curHealth;
 		public final int baseHealth;
+		public final boolean isMMUnit;
 		
-		public UnitInfo(int id, int x, int y, int range, int attk, int curHealth, int baseHealth){
+		public UnitInfo(int id, int x, int y, int range, int attk, int curHealth, int baseHealth, boolean isMMUnit){
 			this.id = id;
 			this.x = x;
 			this.y = y;
@@ -72,11 +73,30 @@ public class GameState {
 			this.attk = attk;
 			this.curHealth = curHealth;
 			this.baseHealth = baseHealth;
+			this.isMMUnit = isMMUnit;
 		}
+		
+		public boolean isAt(int x, int y){
+			return this.x == x && this.y == y;
+		}
+
 		
 	}
 	
-	private List<UnitInfo> extractUnitInfo(List<UnitView> units){
+
+	public UnitInfo getUnitAt(List<UnitInfo> units, int x, int y) {
+		Iterator<UnitInfo> it = units.iterator();
+		UnitInfo cur;
+		while(it.hasNext()){
+			cur = it.next();
+			if(cur.isAt(x, y)){
+				return cur;
+			}
+		}
+		return null;
+	}
+	
+	private List<UnitInfo> extractUnitInfo(List<UnitView> units, boolean isMMUnits){
 		List<UnitInfo> ret = new LinkedList<UnitInfo>();
 		Iterator<UnitView> it = units.iterator();
 		UnitView cur;
@@ -92,7 +112,9 @@ public class GameState {
 							curTemp.getRange(), 
 							curTemp.getBasicAttack(), 
 							cur.getHP(),
-							curTemp.getBaseHealth())
+							curTemp.getBaseHealth(),
+							isMMUnits
+							)
 					);
 		}
 		return ret;
@@ -133,8 +155,8 @@ public class GameState {
     public GameState(State.StateView state) {
     	xExtent = state.getXExtent();
     	yExtent = state.getYExtent();
-    	mmUnits = extractUnitInfo(state.getUnits(0));
-    	archers = extractUnitInfo(state.getUnits(1));
+    	mmUnits = extractUnitInfo(state.getUnits(0), true);
+    	archers = extractUnitInfo(state.getUnits(1), false);
     	resources = extractResourceInfo(state);
     	turnNumber = state.getTurnNumber();
     }
@@ -169,7 +191,7 @@ public class GameState {
     public double getUtility() {
         double ret = 0;
         for(UnitInfo unit : mmUnits){
-        	ret += unit.health;
+        	ret += unit.curHealth;
         }
         System.out.println(ret);
         return ret;
@@ -177,6 +199,48 @@ public class GameState {
     
     public boolean isMMTurn(){
     	return this.turnNumber % 2 == 0;
+    }
+    
+    private class ActionUnitListPair{
+    	public final Action actions;
+    	public final List<UnitInfo> units;
+    	
+    	public ActionUnitListPair(Action a, List<UnitInfo> u){
+    		actions = a;
+    		units = u;
+    	}
+    }
+    
+    private Map<Integer, ActionUnitListPair> getUnitMoves(UnitInfo unit, boolean mmTurn){
+    	Map<Integer, ActionUnitListPair> ret = new HashMap<Integer, ActionUnitListPair>();
+    	if(unit.curHealth == 0){
+    		return ret;
+    	}
+    	List<UnitInfo> enemies = mmTurn ? archers : mmUnits;
+    	List<UnitInfo> myUnits = mmTurn ? mmUnits : archers;
+    	int index = 0;
+    	for(Direction direction: Direction.values()){
+    		int x = unit.x + direction.xComponent();
+    		int y = unit.y + direction.yComponent();
+    		UnitInfo enemy = getUnitAt(enemies, x, y);
+    		if(enemy != null){
+    			Action a = Action.createPrimitiveAttack(unit.id, enemy.id);
+    			List<UnitInfo> u = new ArrayList<UnitInfo>();
+    			u.add(unit);
+    			u.add(new UnitInfo(enemy.id, enemy.x, enemy.y, enemy.range, enemy.attk, enemy.curHealth - unit.attk, enemy.baseHealth, enemy.isMMUnit));
+    			ret.put(index++, new ActionUnitListPair(a,u));
+    		}else if(!resourceAt(x,y) && getUnitAt(myUnits, x, y) == null){
+    			Action a = Action.createPrimitiveMove(unit.id, direction);
+    			List<UnitInfo> u = new ArrayList<UnitInfo>();
+    			u.add(new UnitInfo(unit.id, unit.x + x, unit.y + y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, unit.isMMUnit));
+    			ret.put(index++, new ActionUnitListPair(a,u));
+    		}
+    	}
+    	return ret;
+    }
+    
+    private boolean resourceAt(int x, int y){
+    	return resources.contains(new ResourceInfo(x, y));
     }
 
     /**
@@ -197,7 +261,34 @@ public class GameState {
      */
     public List<GameStateChild> getChildren() {
     	List<GameStateChild> ret = new LinkedList<GameStateChild>();
-    	Map<Integer, Action> actions = new HashMap<Integer, Action>();
+    	
+    	UnitInfo unit1 = null;
+    	UnitInfo unit2 = null;
+    	if(isMMTurn()){
+    		unit1 = mmUnits.get(0);
+    		if(mmUnits.size() > 1){
+    			unit2 = mmUnits.get(1);
+    		}
+    	}else{
+    		unit1 = archers.get(0);
+    		if(archers.size() > 1){
+    			unit2 = archers.get(1);
+    		}
+    	}
+    	
+    	Map<Integer, ActionUnitListPair> unit1Moves = getUnitMoves(unit1, isMMTurn());
+    	if(unit2 != null){
+    		Map<Integer, ActionUnitListPair> unit2Moves = getUnitMoves(unit1, isMMTurn());
+    		for(int i = 0; i < unit1Moves.size(); i++){
+    			ActionUnitListPair unit1Move = unit1Moves.get(i);
+    			for(int j = 0; j < unit2Moves.size(); j++){
+    				ActionUnitListPair unit2Move = unit2Moves.get(j);
+    			}
+    		}
+    	}
+    	
+    	
+    	/*Map<Integer, Action> actions = new HashMap<Integer, Action>();
     	Action unit1Actions[] = new Action[10];
     	UnitInfo unit1Positions[] = new UnitInfo[10];
     	Action unit2Actions[] = null;
@@ -257,7 +348,7 @@ public class GameState {
     		}
     		actions.clear();
     	}
-    	
+    	*/
     	return ret;
     }
 }
