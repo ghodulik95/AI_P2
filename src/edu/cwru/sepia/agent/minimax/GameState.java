@@ -80,6 +80,18 @@ public class GameState {
 			return this.x == x && this.y == y;
 		}
 
+		@Override
+		public int hashCode(){
+			return Integer.valueOf(id).hashCode();
+		}
+		@Override
+		public boolean equals(Object o){
+			if(o instanceof UnitInfo){
+				UnitInfo u = (UnitInfo) o;
+				return u.id == this.id;
+			}
+			return false;
+		}
 		
 	}
 	
@@ -189,35 +201,22 @@ public class GameState {
      * @return The weighted linear combination of the features
      */
     public double getUtility() {
-        double ret = 0;
-        for(UnitInfo unit : mmUnits){
-        	ret += unit.curHealth;
-        }
-        System.out.println(ret);
-        return ret;
+        return 1.0;
     }
     
     public boolean isMMTurn(){
     	return this.turnNumber % 2 == 0;
     }
+  
     
-    private class ActionUnitListPair{
-    	public final Action actions;
-    	public final List<UnitInfo> units;
-    	
-    	public ActionUnitListPair(Action a, List<UnitInfo> u){
-    		actions = a;
-    		units = u;
-    	}
-    }
-    
-    private Map<Integer, ActionUnitListPair> getUnitMoves(UnitInfo unit, boolean mmTurn){
-    	Map<Integer, ActionUnitListPair> ret = new HashMap<Integer, ActionUnitListPair>();
+    private List<GameStateChild> getUnitMoves(UnitInfo unit, GameState gameState, Map<Integer, Action> actions, int maxMapIndex){
+    	List<GameStateChild> children = new ArrayList<GameStateChild>();
     	if(unit.curHealth == 0){
-    		return ret;
+    		return children;
     	}
-    	List<UnitInfo> enemies = mmTurn ? archers : mmUnits;
-    	List<UnitInfo> myUnits = mmTurn ? mmUnits : archers;
+    	List<UnitInfo> enemies = isMMTurn() ? gameState.archers : gameState.mmUnits;
+    	List<UnitInfo> myUnits = isMMTurn() ? gameState.mmUnits : gameState.archers;
+    	
     	int index = 0;
     	for(Direction direction: Direction.values()){
     		int x = unit.x + direction.xComponent();
@@ -225,22 +224,67 @@ public class GameState {
     		UnitInfo enemy = getUnitAt(enemies, x, y);
     		if(enemy != null){
     			Action a = Action.createPrimitiveAttack(unit.id, enemy.id);
-    			List<UnitInfo> u = new ArrayList<UnitInfo>();
-    			u.add(unit);
-    			u.add(new UnitInfo(enemy.id, enemy.x, enemy.y, enemy.range, enemy.attk, enemy.curHealth - unit.attk, enemy.baseHealth, enemy.isMMUnit));
-    			ret.put(index++, new ActionUnitListPair(a,u));
+    			List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
+    	    	allUnits.addAll(mmUnits);
+    	    	allUnits.addAll(archers);
+    			allUnits.remove(enemy);
+    			allUnits.add(new UnitInfo(enemy.id, enemy.x, enemy.y, enemy.range, enemy.attk, enemy.curHealth - unit.attk, enemy.baseHealth, enemy.isMMUnit));
+    			
+    			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
+    			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
+    			separateMMUnits(allUnits, newMMUnits, newArchers);
+    			
+    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
+    			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
+    			newActions.putAll(actions);
+    			newActions.put(maxMapIndex + 1, a);
+    			children.add(new GameStateChild(newActions, newGameState));
     		}else if(!resourceAt(x,y) && getUnitAt(myUnits, x, y) == null){
     			Action a = Action.createPrimitiveMove(unit.id, direction);
-    			List<UnitInfo> u = new ArrayList<UnitInfo>();
-    			u.add(new UnitInfo(unit.id, unit.x + x, unit.y + y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, unit.isMMUnit));
-    			ret.put(index++, new ActionUnitListPair(a,u));
+    			List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
+    	    	allUnits.addAll(mmUnits);
+    	    	allUnits.addAll(archers);
+    			allUnits.remove(unit);
+    			allUnits.add(new UnitInfo(unit.id, x, y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, unit.isMMUnit));
+    			
+    			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
+    			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
+    			separateMMUnits(allUnits, newMMUnits, newArchers);
+    			
+    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
+    			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
+    			newActions.putAll(actions);
+    			newActions.put(maxMapIndex + 1, a);
+    			children.add(new GameStateChild(newActions, newGameState));
     		}
     	}
-    	return ret;
+    	return children;
+    }
+    
+    private void separateMMUnits(List<UnitInfo> all, List<UnitInfo> mm, List<UnitInfo> arch){
+    	for(UnitInfo u : all){
+			if(u.isMMUnit){
+				mm.add(u);
+			}else{
+				arch.add(u);
+			}
+		}
     }
     
     private boolean resourceAt(int x, int y){
     	return resources.contains(new ResourceInfo(x, y));
+    }
+    
+    private GameState copy(){
+    	List<UnitInfo> newMM = new ArrayList<UnitInfo>();
+    	for( UnitInfo unit : mmUnits ){
+    		newMM.add(new UnitInfo(unit.id, unit.x, unit.y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, true));
+    	}
+    	List<UnitInfo> newArch = new ArrayList<UnitInfo>();
+    	for( UnitInfo unit : archers ){
+    		newArch.add(new UnitInfo(unit.id, unit.x, unit.y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, true));
+    	}
+    	return new GameState(this.xExtent, this.yExtent, newMM, newArch, resources, turnNumber + 1);
     }
 
     /**
@@ -276,16 +320,15 @@ public class GameState {
     		}
     	}
     	
-    	Map<Integer, ActionUnitListPair> unit1Moves = getUnitMoves(unit1, isMMTurn());
+    	List<GameStateChild> unit1Moves = getUnitMoves(unit1, this, new HashMap<Integer, Action>(), -1);
     	if(unit2 != null){
-    		Map<Integer, ActionUnitListPair> unit2Moves = getUnitMoves(unit1, isMMTurn());
-    		for(int i = 0; i < unit1Moves.size(); i++){
-    			ActionUnitListPair unit1Move = unit1Moves.get(i);
-    			for(int j = 0; j < unit2Moves.size(); j++){
-    				ActionUnitListPair unit2Move = unit2Moves.get(j);
-    			}
+    		for(GameStateChild child : unit1Moves){
+    			ret.addAll(getUnitMoves(unit2, child.state, child.action, 0));
     		}
+    	}else{
+    		ret.addAll(unit1Moves);
     	}
+    	return ret;
     	
     	
     	/*Map<Integer, Action> actions = new HashMap<Integer, Action>();
@@ -349,6 +392,5 @@ public class GameState {
     		actions.clear();
     	}
     	*/
-    	return ret;
     }
 }
