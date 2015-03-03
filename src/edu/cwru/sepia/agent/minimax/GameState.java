@@ -118,7 +118,7 @@ public class GameState {
 			curTemp = cur.getTemplateView();
 			ret.add(
 					new UnitInfo(
-							curTemp.getID(),
+							cur.getID(),
 							cur.getXPosition(), 
 							cur.getYPosition(), 
 							curTemp.getRange(), 
@@ -217,7 +217,6 @@ public class GameState {
     	List<UnitInfo> enemies = isMMTurn() ? gameState.archers : gameState.mmUnits;
     	List<UnitInfo> myUnits = isMMTurn() ? gameState.mmUnits : gameState.archers;
     	
-    	int index = 0;
     	for(Direction direction: Direction.values()){
     		int x = unit.x + direction.xComponent();
     		int y = unit.y + direction.yComponent();
