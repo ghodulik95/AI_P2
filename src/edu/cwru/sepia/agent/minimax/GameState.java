@@ -31,6 +31,7 @@ public class GameState {
 	private List<UnitInfo> archers;
 	private Set<ResourceInfo> resources;
 	private int turnNumber;
+	private Map<Integer, Action> lastActions;
 	
 	private class ResourceInfo{
 		public final int x;
@@ -91,6 +92,11 @@ public class GameState {
 				return u.id == this.id;
 			}
 			return false;
+		}
+		
+		
+		public int distanceTo(UnitInfo unit){
+			return Math.min(Math.abs(unit.x - this.x), Math.abs(unit.y - this.y));
 		}
 		
 	}
@@ -171,15 +177,18 @@ public class GameState {
     	archers = extractUnitInfo(state.getUnits(1), false);
     	resources = extractResourceInfo(state);
     	turnNumber = state.getTurnNumber();
+    	lastActions = new HashMap<Integer, Action>();
     }
     
-    public GameState(int xExtent, int yExtent, List<UnitInfo> mmUnits, List<UnitInfo> archers, Set<ResourceInfo> resources, int turnNumber){
+    public GameState(int xExtent, int yExtent, List<UnitInfo> mmUnits, List<UnitInfo> archers, Set<ResourceInfo> resources, int turnNumber,
+    						Map<Integer, Action> prev){
     	this.xExtent = xExtent;
     	this.yExtent = yExtent;
     	this.mmUnits = mmUnits;
     	this.archers = archers;
     	this.resources = resources;
     	this.turnNumber = turnNumber;
+    	this.lastActions = prev;
     }
 
     /**
@@ -201,15 +210,37 @@ public class GameState {
      * @return The weighted linear combination of the features
      */
     public double getUtility() {
-        return 1.0;
+    	double ret = 0;
+    	        for(UnitInfo mmInfo: mmUnits){
+    	        	for(UnitInfo archInfo : archers){
+    	        		ret -= Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y);
+    	        	}
+    	        }
+    	        return ret;
     }
     
-    public boolean isMMTurn(){
+    private UnitInfo getClosestEnemy(UnitInfo unit) {
+		if(unit.isMMUnit){
+			UnitInfo closestArcher = null;
+			int minDist = Integer.MAX_VALUE;
+			for(UnitInfo arch : archers){
+				if(arch.distanceTo(unit) < minDist){
+					minDist = arch.distanceTo(unit);
+					closestArcher = arch;
+				}
+			}
+			return closestArcher;
+		}else{
+			return null;
+		}
+	}
+
+	public boolean isMMTurn(){
     	return this.turnNumber % 2 == 0;
     }
   
     
-    private List<GameStateChild> getUnitMoves(UnitInfo unit, GameState gameState, Map<Integer, Action> actions, int maxMapIndex){
+    private List<GameStateChild> getUnitMoves(UnitInfo unit, GameState gameState, Map<Integer, Action> actions, int maxMapIndex, Map<Integer, Action> lastActions){
     	List<GameStateChild> children = new ArrayList<GameStateChild>();
     	if(unit.curHealth == 0){
     		return children;
@@ -220,6 +251,9 @@ public class GameState {
     	for(Direction direction: Direction.values()){
     		int x = unit.x + direction.xComponent();
     		int y = unit.y + direction.yComponent();
+    		if(!isValidPoint(direction,x,y)){
+    			continue;
+    		}
     		UnitInfo enemy = getUnitAt(enemies, x, y);
     		if(enemy != null){
     			Action a = Action.createPrimitiveAttack(unit.id, enemy.id);
@@ -233,10 +267,14 @@ public class GameState {
     			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
     			separateMMUnits(allUnits, newMMUnits, newArchers);
     			
-    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
     			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
-    			newActions.putAll(actions);
-    			newActions.put(maxMapIndex + 1, a);
+    			//if(unit.isMMUnit){
+	    			newActions.putAll(actions);
+	    			newActions.put(maxMapIndex + 1, a);
+    			//}else{
+    			//	newActions.putAll(lastActions);
+    			//}
+    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1, newActions);
     			children.add(new GameStateChild(newActions, newGameState));
     		}else if(!resourceAt(x,y) && getUnitAt(myUnits, x, y) == null){
     			Action a = Action.createPrimitiveMove(unit.id, direction);
@@ -250,17 +288,26 @@ public class GameState {
     			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
     			separateMMUnits(allUnits, newMMUnits, newArchers);
     			
-    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
     			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
-    			newActions.putAll(actions);
-    			newActions.put(maxMapIndex + 1, a);
+    			//if(unit.isMMUnit){
+	    			newActions.putAll(actions);
+	    			newActions.put(maxMapIndex + 1, a);
+    			//}else{
+    			//	newActions.putAll(lastActions);
+    			//}
+    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1, newActions);
+    			
     			children.add(new GameStateChild(newActions, newGameState));
     		}
     	}
     	return children;
     }
     
-    private void separateMMUnits(List<UnitInfo> all, List<UnitInfo> mm, List<UnitInfo> arch){
+    private boolean isValidPoint(Direction d, int x, int y) {
+		return d.xComponent() + d.yComponent() <= 1 && x >= 0 && y >= 0 && x < xExtent && y < yExtent;
+	}
+
+	private void separateMMUnits(List<UnitInfo> all, List<UnitInfo> mm, List<UnitInfo> arch){
     	for(UnitInfo u : all){
 			if(u.isMMUnit){
 				mm.add(u);
@@ -283,7 +330,7 @@ public class GameState {
     	for( UnitInfo unit : archers ){
     		newArch.add(new UnitInfo(unit.id, unit.x, unit.y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, true));
     	}
-    	return new GameState(this.xExtent, this.yExtent, newMM, newArch, resources, turnNumber + 1);
+    	return new GameState(this.xExtent, this.yExtent, newMM, newArch, resources, turnNumber + 1, lastActions);
     }
 
     /**
@@ -319,10 +366,11 @@ public class GameState {
     		}
     	}
     	
-    	List<GameStateChild> unit1Moves = getUnitMoves(unit1, this, new HashMap<Integer, Action>(), -1);
+    	Map<Integer, Action> firstActions = isMMTurn()? new HashMap<Integer, Action>() : lastActions;
+    	List<GameStateChild> unit1Moves = getUnitMoves(unit1, this, firstActions, -1, lastActions);
     	if(unit2 != null){
     		for(GameStateChild child : unit1Moves){
-    			ret.addAll(getUnitMoves(unit2, child.state, child.action, 0));
+    			ret.addAll(getUnitMoves(unit2, child.state, child.action, 0, lastActions));
     		}
     	}else{
     		ret.addAll(unit1Moves);

@@ -76,19 +76,23 @@ public class MinimaxAlphaBeta extends Agent {
     {
         GameState orig = node.state;
         
-        if(node.action != null && node.action.size() > 0 && (orig.getUtility() == 0 || depth >= numPlys)){
-        	return node;
+        if(node.action != null && node.action.size() > 0 && (orig.getUtility() == 0 || depth >= 2)){
+        	return null;
         }else {
         	List<GameStateChild> children = orig.getChildren();
         	GameStateChild toReturn = node;
         	double newUtil = orig.isMMTurn() ? alpha : beta;
-        	double childUtil = 100;
+        	GameStateChild returnedChild = null;
         	for( GameStateChild child : children){
         		if(orig.isMMTurn()){
-        			childUtil = alphaBetaSearch(child, depth + 1, newUtil, beta).state.getUtility();
+        			returnedChild = alphaBetaSearch(child, depth + 1, newUtil, beta);
         		}else{
-        			childUtil = alphaBetaSearch(child, depth + 1, alpha, newUtil).state.getUtility();
+        			returnedChild = alphaBetaSearch(child, depth + 1, alpha, newUtil);
         		}
+        		if(returnedChild == null){
+        			return toReturn;
+        		}
+        		double childUtil = returnedChild.state.getUtility();
         		if(childUtil > newUtil == orig.isMMTurn() ){
         			newUtil = childUtil;
         			toReturn = child;
