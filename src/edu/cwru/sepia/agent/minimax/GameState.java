@@ -201,7 +201,13 @@ public class GameState {
      * @return The weighted linear combination of the features
      */
     public double getUtility() {
-        return 1.0;
+        double ret = 0;
+        for(UnitInfo mmInfo: mmUnits){
+        	for(UnitInfo archInfo : archers){
+        		ret -= Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y);
+        	}
+        }
+        return ret;
     }
     
     public boolean isMMTurn(){
