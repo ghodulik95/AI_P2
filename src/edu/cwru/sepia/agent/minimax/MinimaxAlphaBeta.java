@@ -89,7 +89,7 @@ public class MinimaxAlphaBeta extends Agent {
         		}else{
         			childUtil = alphaBetaSearch(child, depth + 1, alpha, newUtil).state.getUtility();
         		}
-        		if(childUtil > newUtil == orig.isMMTurn() ){
+        		if(childUtil >= newUtil == orig.isMMTurn() ){
         			newUtil = childUtil;
         			toReturn = child;
         		}

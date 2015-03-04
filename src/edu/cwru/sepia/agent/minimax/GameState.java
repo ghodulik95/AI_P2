@@ -204,7 +204,7 @@ public class GameState {
         double ret = 0;
         for(UnitInfo mmInfo: mmUnits){
         	for(UnitInfo archInfo : archers){
-        		ret -= Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y);
+        		ret = ret - ( Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y));
         	}
         }
         return ret;
@@ -244,7 +244,7 @@ public class GameState {
     			newActions.putAll(actions);
     			newActions.put(maxMapIndex + 1, a);
     			children.add(new GameStateChild(newActions, newGameState));
-    		}else if(!resourceAt(x,y) && getUnitAt(myUnits, x, y) == null){
+    		}else if( coordinateValid(direction,x,y) && !resourceAt(x,y) && getUnitAt(myUnits, x, y) == null){
     			Action a = Action.createPrimitiveMove(unit.id, direction);
     			List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
     	    	allUnits.addAll(mmUnits);
@@ -266,7 +266,11 @@ public class GameState {
     	return children;
     }
     
-    private void separateMMUnits(List<UnitInfo> all, List<UnitInfo> mm, List<UnitInfo> arch){
+    private boolean coordinateValid(Direction direction, int x, int y) {
+		return direction.xComponent() + direction.yComponent() == 1 && x > 0 && y > 0 && x < xExtent && y < yExtent;
+	}
+
+	private void separateMMUnits(List<UnitInfo> all, List<UnitInfo> mm, List<UnitInfo> arch){
     	for(UnitInfo u : all){
 			if(u.isMMUnit){
 				mm.add(u);
