@@ -75,7 +75,7 @@ public class MinimaxAlphaBeta extends Agent {
     public GameStateChild alphaBetaSearch(GameStateChild node, int depth, double alpha, double beta)
     {
         GameState orig = node.state;
-        if(orig.getUtility() == 0 || depth >= numPlys){
+        if(node.action != null && node.action.size() > 0 && (orig.getUtility() == 0 || depth >= numPlys)){
         	return node;
         }else {
         	List<GameStateChild> children = orig.getChildren();

@@ -86,7 +86,7 @@ public class GameState {
 			curTemp = cur.getTemplateView();
 			ret.add(
 					new UnitInfo(
-							curTemp.getID(),
+							cur.getID(),
 							cur.getXPosition(), 
 							cur.getYPosition(), 
 							curTemp.getRange(), 
@@ -167,12 +167,13 @@ public class GameState {
      * @return The weighted linear combination of the features
      */
     public double getUtility() {
-        double ret = 0;
-        for(UnitInfo unit : mmUnits){
-        	ret += unit.health;
-        }
-        System.out.println(ret);
-        return ret;
+    	 double ret = 0;
+    	 for(UnitInfo mmInfo: mmUnits){
+    		 for(UnitInfo archInfo : archers){
+    			 ret -= Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y);
+    		 }
+    	 }
+    	 return ret;
     }
     
     public boolean isMMTurn(){
@@ -204,21 +205,26 @@ public class GameState {
     	UnitInfo unit2Positions[] = null;
     	int index = 0;
     	UnitInfo unit1 = null;
+
+    	UnitInfo unit2 = null;
     	if(isMMTurn()){
     		unit1 = mmUnits.get(0);
+    		if(mmUnits.size() > 1){
+    			unit2 = mmUnits.get(1);
+
+        		unit2Actions = new Action[10];
+        		unit2Positions = new UnitInfo[10];
+    		}
     	}else{
     		unit1 = archers.get(0);
-    	}
-    	UnitInfo unit2 = null;
-    	if(mmUnits.size() > 1){
-    		if(isMMTurn()){
-    			unit2 = mmUnits.get(1);
-    		}else{
+    		if(archers.size() > 0){
     			unit2 = archers.get(1);
+
+        		unit2Actions = new Action[10];
+        		unit2Positions = new UnitInfo[10];
     		}
-    		unit2Actions = new Action[10];
-    		unit2Positions = new UnitInfo[10];
     	}
+    	
     	for( Direction direction : Direction.values()){
     		unit1Actions[index] = Action.createPrimitiveMove(unit1.id, direction);
     		unit1Positions[index] = new UnitInfo(unit1.id, unit1.x + direction.xComponent(), unit1.y + direction.yComponent(), 
