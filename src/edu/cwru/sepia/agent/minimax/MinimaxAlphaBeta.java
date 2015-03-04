@@ -7,8 +7,7 @@ import edu.cwru.sepia.environment.model.state.State;
 
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MinimaxAlphaBeta extends Agent {
 
@@ -75,11 +74,12 @@ public class MinimaxAlphaBeta extends Agent {
     public GameStateChild alphaBetaSearch(GameStateChild node, int depth, double alpha, double beta)
     {
         GameState orig = node.state;
-        
-        if(node.action != null && node.action.size() > 0 && (orig.getUtility() == 0 || depth >= numPlys)){
-        	return node;
+    	List<GameStateChild> children = orderChildrenWithHeuristics(orig.getChildren());
+    	Collections.sort(children);
+    	
+        if(node.action != null && node.action.size() > 0 && (orig.getUtility() == 0 || depth >= 100)){
+        	return children.get(0);
         }else {
-        	List<GameStateChild> children = orig.getChildren();
         	GameStateChild toReturn = node;
         	double newUtil = orig.isMMTurn() ? alpha : beta;
         	double childUtil = 100;
@@ -93,6 +93,7 @@ public class MinimaxAlphaBeta extends Agent {
         			newUtil = childUtil;
         			toReturn = child;
         		}
+        		break;
         	}
         	return toReturn;
         }

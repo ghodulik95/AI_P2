@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * Do not change this class.
  */
-public class GameStateChild {
+public class GameStateChild implements Comparable<GameStateChild>{
     //* This is set of unit actions that produced the game state
     public Map<Integer, Action> action;
     //* This is the game state resulting from the specified set of actions
@@ -25,4 +25,9 @@ public class GameStateChild {
         this.action = action;
         this.state = state;
     }
+
+	@Override
+	public int compareTo(GameStateChild gc) {
+		return (int) -(this.state.getUtility() - gc.state.getUtility());
+	}
 }

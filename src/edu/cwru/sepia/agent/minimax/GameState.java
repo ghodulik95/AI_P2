@@ -23,7 +23,7 @@ import java.util.*;
  * Add any information or methods you would like to this class,
  * but do not delete or change the signatures of the provided methods.
  */
-public class GameState {
+public class GameState implements Comparable<GameState>{
 
 	private int xExtent;
 	private int yExtent;
@@ -201,13 +201,28 @@ public class GameState {
      * @return The weighted linear combination of the features
      */
     public double getUtility() {
-        return 1.0;
+    	 double ret = 0;
+    	         for(UnitInfo mmInfo: mmUnits){
+    	         	for(UnitInfo archInfo : archers){
+    	         		ret -= Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y);
+    	         	}
+    	         }
+    	        return ret;
     }
     
     public boolean isMMTurn(){
     	return this.turnNumber % 2 == 0;
     }
   
+    @Override
+    public int compareTo(GameState g){
+    	return (int) (this.getUtility() - g.getUtility());
+    }
+    
+    @Override
+    public boolean equals(Object o){
+    	return false;
+    }
     
     private List<GameStateChild> getUnitMoves(UnitInfo unit, GameState gameState, Map<Integer, Action> actions, int maxMapIndex){
     	List<GameStateChild> children = new ArrayList<GameStateChild>();
