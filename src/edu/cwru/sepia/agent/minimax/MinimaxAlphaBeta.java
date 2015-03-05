@@ -76,7 +76,7 @@ public class MinimaxAlphaBeta extends Agent {
     {
         GameState orig = node.state;
         
-        if(node.action != null && node.action.size() > 0 && (orig.getUtility() == 0 || depth >= numPlys)){
+        if(node.action != null && node.action.size() > 0 && (orig.getUtility() == 0 || depth <= 0)){
         	return node;
         }else {
         	List<GameStateChild> children = orig.getChildren();
@@ -85,9 +85,9 @@ public class MinimaxAlphaBeta extends Agent {
         	double childUtil = 100;
         	for( GameStateChild child : children){
         		if(orig.isMMTurn()){
-        			childUtil = alphaBetaSearch(child, depth + 1, newUtil, beta).state.getUtility();
+        			childUtil = alphaBetaSearch(child, depth - 1, newUtil, beta).state.getUtility();
         		}else{
-        			childUtil = alphaBetaSearch(child, depth + 1, alpha, newUtil).state.getUtility();
+        			childUtil = alphaBetaSearch(child, depth - 1, alpha, newUtil).state.getUtility();
         		}
         		if(childUtil >= newUtil == orig.isMMTurn() ){
         			newUtil = childUtil;
