@@ -7,6 +7,10 @@ import edu.cwru.sepia.environment.model.state.State;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -80,6 +84,8 @@ public class MinimaxAlphaBeta extends Agent {
         	return node;
         }else {
         	List<GameStateChild> children = orig.getChildren();
+        	System.out.println(children);
+        	System.out.println(orderChildrenWithHeuristics(children));
         	GameStateChild toReturn = node;
         	double newUtil = orig.isMMTurn() ? alpha : beta;
         	double childUtil = 100;
@@ -113,6 +119,33 @@ public class MinimaxAlphaBeta extends Agent {
      */
     public List<GameStateChild> orderChildrenWithHeuristics(List<GameStateChild> children)
     {
-        return children;
+    	List<GameStateChild> temp = children;
+    	ArrayList<Double> list = new ArrayList<Double>();
+    	Map<Double, GameStateChild> m = new HashMap<Double, GameStateChild>();
+    	for(GameStateChild t : children)
+    	{
+    		GameState g = t.state;
+    		Double d = g.getUtility();
+    		System.out.println(d);
+    		m.put(d, t);
+    		list.add(d);
+    	}
+    	Collections.sort(list, new Comparator<Double>(){
+    	        public int compare(Double a, Double b)
+    	        {
+    	            return  a.compareTo(b);
+    	        }
+
+    	});
+    	
+    	for(int i = 0; i<children.size(); i++)
+    	{
+    		double tem = list.get(i);
+    		GameStateChild gsc = m.get(tem);
+    		temp.set(i, gsc);
+    	}
+    		
+    	
+        return temp;
     }
 }
