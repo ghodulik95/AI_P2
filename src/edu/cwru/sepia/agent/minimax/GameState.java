@@ -30,7 +30,7 @@ public class GameState {
 	private List<UnitInfo> mmUnits;
 	private List<UnitInfo> archers;
 	private Set<ResourceInfo> resources;
-	private State.StateView gameState;
+	private int turnNumber;
 	
 	private class ResourceInfo{
 		public final int x;
@@ -61,20 +61,46 @@ public class GameState {
 		public final int y;
 		public final int range;
 		public final int attk;
-		public final int health;
+		public final int HP;
+		public final int baseHealth;
+		public final boolean isMMUnit;
 		
-		public UnitInfo(int id, int x, int y, int range, int attk, int health){
+		public UnitInfo(int id, int x, int y, int range, int attk, int HP, int baseHealth, boolean isMM){
 			this.id = id;
 			this.x = x;
 			this.y = y;
 			this.range = range;
 			this.attk = attk;
-			this.health = health;
+			this.HP = HP;
+			this.baseHealth = baseHealth;
+			this.isMMUnit = isMM;
+		}
+
+		public UnitInfo(UnitInfo unit, int newX, int newY) {
+			this(unit.id, newX, newY, unit.range, unit.attk, unit.HP, unit.baseHealth, unit.isMMUnit);
+		}
+
+		public boolean isAt(int x, int y) {
+			return this.x == x && this.y == y;
+		}
+		
+		@Override
+		public boolean equals(Object o){
+			if(o instanceof UnitInfo){
+				UnitInfo u = (UnitInfo) o;
+				return u.id == this.id;
+			}
+			return false;
+		}
+		
+		@Override
+		public int hashCode(){
+			return Integer.valueOf(id).hashCode();
 		}
 		
 	}
 	
-	private List<UnitInfo> extractUnitInfo(List<UnitView> units){
+	private List<UnitInfo> extractUnitInfo(List<UnitView> units, boolean isMM){
 		List<UnitInfo> ret = new LinkedList<UnitInfo>();
 		Iterator<UnitView> it = units.iterator();
 		UnitView cur;
@@ -84,12 +110,14 @@ public class GameState {
 			curTemp = cur.getTemplateView();
 			ret.add(
 					new UnitInfo(
-							curTemp.getID(),
+							cur.getID(),
 							cur.getXPosition(), 
 							cur.getYPosition(), 
 							curTemp.getRange(), 
-							curTemp.getBasicAttack(), 
-							curTemp.getBaseHealth())
+							curTemp.getBasicAttack(),
+							cur.getHP(),
+							curTemp.getBaseHealth(),
+							isMM)
 					);
 		}
 		return ret;
@@ -130,13 +158,54 @@ public class GameState {
     public GameState(State.StateView state) {
     	xExtent = state.getXExtent();
     	yExtent = state.getYExtent();
-    	mmUnits = extractUnitInfo(state.getUnits(0));
-    	archers = extractUnitInfo(state.getUnits(1));
+    	mmUnits = extractUnitInfo(state.getUnits(0), true);
+    	archers = extractUnitInfo(state.getUnits(1), false);
     	resources = extractResourceInfo(state);
-    	gameState = state;
+    	turnNumber = 0;
     }
 
-    /**
+    public GameState(GameState gameState, List<UnitInfo> otherUnits) {
+		xExtent = gameState.xExtent;
+		yExtent = gameState.yExtent;
+		resources = gameState.resources;
+		
+		mmUnits = new ArrayList<UnitInfo>();
+		archers = new ArrayList<UnitInfo>();
+		
+		List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
+		allUnits.addAll(gameState.mmUnits);
+		allUnits.addAll(gameState.archers);
+		
+		setUnits(otherUnits, allUnits);
+	}
+
+	private void setUnits(List<UnitInfo> otherUnits, List<UnitInfo> allUnits) {
+		for(UnitInfo unit : otherUnits){
+			if(unit.isMMUnit){
+				mmUnits.add(unit);
+			}else{
+				archers.add(unit);
+			}
+
+			allUnits.remove(unit);
+		}
+		for(UnitInfo unit : allUnits){
+			if(unit.isMMUnit){
+				mmUnits.add(unit);
+			}else{
+				archers.add(unit);
+			}
+		}
+	}
+
+	public void incrementTurn(){
+		turnNumber++;
+	}
+	
+	public boolean isMMTurn(){
+		return turnNumber % 2 == 0;
+	}
+	/**
      * You will implement this function.
      *
      * You should use weighted linear combination of features.
@@ -182,15 +251,96 @@ public class GameState {
      */
     public List<GameStateChild> getChildren() {
     	List<GameStateChild> ret = new LinkedList<GameStateChild>();
-    	Map<Integer, Action> actions = new HashMap<Integer, Action>();
-    	//if mmturn
-    	for( UnitInfo unit : mmUnits ){
-	    	for(Direction direction : Direction.values()){
-	    		actions.put(unit.id, Action.createPrimitiveMove(unit.id, direction));
-	    	}
+    	
+    	if(isMMTurn()){
+    		UnitInfo unit1 = mmUnits.get(0);
+    		UnitInfo unit2 = mmUnits.size() > 1 ? mmUnits.get(1) : null;
+    		List<GameStateChild> unit1Moves = getAllMoves(unit1, new ArrayList<UnitInfo>(), new HashMap<Integer, Action>(), 0, false);
+    		for(GameStateChild move : unit1Moves){
+    			List<GameStateChild> unit2Moves = getAllMoves(unit2, move.state.getAllUnits(), move.action, 1, true);
+    			if(unit2 != null){
+    			for(GameStateChild secondMove : unit2Moves){
+    				if(!secondMove.state.unitsOverlap(true)){
+    					ret.add(secondMove);
+    				}
+    			}
+    			}else
+    				ret.add(move);
+    		}
+    	}else{
+    		this.incrementTurn();
+    		ret.add(new GameStateChild(new HashMap<Integer, Action>(), this));
     	}
-    	GameStateChild g = new GameStateChild(gameState);
-    	ret.add(g);
+    	
     	return ret;
     }
+    
+    private boolean unitsOverlap(boolean isMMTurn) {
+		UnitInfo unit1;
+		UnitInfo unit2;
+		if(isMMTurn){
+			unit1 = mmUnits.get(0);
+			unit2 = mmUnits.get(1);
+		}else{
+			if(archers.size() == 1){
+				return false;
+			}
+			unit1 = archers.get(0);
+			unit2 = archers.get(1);
+		}
+		return unit1.isAt(unit2.x, unit2.y);
+	}
+
+	private List<UnitInfo> getAllUnits() {
+		ArrayList<UnitInfo> allUnits = new ArrayList<UnitInfo>();
+		allUnits.addAll(mmUnits);
+		allUnits.addAll(archers);
+		return allUnits;
+	}
+
+	private List<GameStateChild> getAllMoves(UnitInfo unit, List<UnitInfo> otherUnits, Map<Integer, Action> otherActions, int nextActionNum, boolean incTurn){
+    	List<GameStateChild> toReturn = new ArrayList<GameStateChild>();
+    	
+    	for(Direction direction : Direction.values()){
+    		int x = unit.x + direction.xComponent();
+    		int y = unit.y + direction.yComponent();
+    		if(!validLocation(x,y)){
+    			continue;
+    		}
+    		UnitInfo inTheWay = getUnitAt(x,y,otherUnits, unit.id);
+    		if(inTheWay == null){
+    			Action a = Action.createPrimitiveMove(unit.id, direction);
+    			otherActions.put(nextActionNum, a);
+    			otherUnits.add(new UnitInfo(unit, x,y));
+    			GameState gs = new GameState(this, otherUnits);
+    			if(incTurn){
+    				gs.incrementTurn();
+    			}
+    			toReturn.add(new GameStateChild(otherActions, gs));
+    		}
+    	}
+    	
+    	return toReturn;
+    }
+
+	private boolean validLocation(int x, int y) {
+		return x >= 0 && y >= 0 && x < xExtent && y < yExtent && !resources.contains(new ResourceInfo(x,y));
+	}
+
+	private UnitInfo getUnitAt(int x, int y, List<UnitInfo> others, int myID) {
+		for(UnitInfo other : others){
+			if(other.isAt(x,y)){
+				return other;
+			}
+		}
+		List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
+		allUnits.addAll(mmUnits);
+		allUnits.addAll(archers);
+		for(UnitInfo other : allUnits){
+			if(other.isAt(x, y) && other.id != myID){
+				return other;
+			}
+		}
+		return null;
+	}
 }
