@@ -210,6 +210,8 @@ public class GameState {
      * @return The weighted linear combination of the features
      */
     public double getUtility() {
+    	if(resources.size() > 7){
+    	
     	MapLocation foot1 = new MapLocation(mmUnits.get(0).x,mmUnits.get(0).y);
     	MapLocation foot2 = null;
     	if(mmUnits.size()>1)
@@ -243,9 +245,29 @@ public class GameState {
     		
     	}
     	
+    	//if(mmUnits.get(0).id == 0){
+    	//	return -s2;
+    	//}else{
+    	//	return -s1;
+    	//}
+    	
     	return -(s1 + s2);
     	
-    	
+    	}else{
+    		double dist = 0;
+    		for(UnitInfo mm : mmUnits){
+    			double minDist = Double.POSITIVE_INFINITY;
+    			for(UnitInfo arch : archers){
+    				double curDist = Math.abs(mm.x - arch.x) + Math.abs(mm.y - arch.y);
+    				if(curDist < minDist){
+    					minDist = curDist;
+    				}
+    			}
+    			dist -= minDist;
+    			System.out.println("THIS IS HERE");
+    		}
+    		return dist;
+    	}
 	
 	}
     	
@@ -352,7 +374,7 @@ public class GameState {
     	int curDist;
     	UnitInfo curUnit;
 		for(UnitInfo enemy : enemies){
-			curDist = Math.min( Math.abs(unit.x - enemy.x), Math.abs(unit.y - enemy.y) );
+			curDist = Math.max( Math.abs(unit.x - enemy.x), Math.abs(unit.y - enemy.y));
 			if(curDist <= unit.range && curDist < closestDist){
 				closestDist = curDist;
 				closestUnit = enemy;
