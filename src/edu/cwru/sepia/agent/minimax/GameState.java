@@ -208,7 +208,7 @@ public class GameState {
     public double getUtility() {
     	MapLocation foot1 = new MapLocation(mmUnits.get(0).x,mmUnits.get(0).y);
     	MapLocation foot2 = null;
-    	if(mmUnits.size()!=1)
+    	if(mmUnits.size()>1)
     	{
     		 foot2 = new MapLocation(mmUnits.get(1).x,mmUnits.get(1).y);
     	}
@@ -227,7 +227,7 @@ public class GameState {
     		{
     			s1 = f1.size();
     		}
-        	if(mmUnits.size()!=1)
+        	if(mmUnits.size()>1)
         	{
         		f2 = AstarSearch(foot2, arch, this.xExtent, this.yExtent, null, this.resources);
         		if(f2.size()<s2)
@@ -238,7 +238,7 @@ public class GameState {
     		
     	}
     	
-    	return Math.max(s1,s2);
+    	return -(s1 + s2);
     	
     	
 	
@@ -269,12 +269,13 @@ public class GameState {
     	if(unit.curHealth == 0){
     		return children;
     	}
-    	List<UnitInfo> enemies = isMMTurn() ? gameState.archers : gameState.mmUnits;
-    	List<UnitInfo> myUnits = isMMTurn() ? gameState.mmUnits : gameState.archers;
+    	List<UnitInfo> enemies = unit.isMMUnit ? gameState.archers : gameState.mmUnits;
+    	List<UnitInfo> myUnits = unit.isMMUnit ? gameState.mmUnits : gameState.archers;
     	
     	for(Direction direction: Direction.values()){
     		int x = unit.x + direction.xComponent();
     		int y = unit.y + direction.yComponent();
+    		System.out.println("x:+"+direction.xComponent()+" y:"+direction.yComponent());
     		UnitInfo enemy = getUnitAt(enemies, x, y);
     		if(enemy != null){
     			Action a = Action.createPrimitiveAttack(unit.id, enemy.id);
@@ -291,7 +292,7 @@ public class GameState {
     			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
     			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
     			newActions.putAll(actions);
-    			newActions.put(maxMapIndex + 1, a);
+    			newActions.put(unit.id, a);
     			children.add(new GameStateChild(newActions, newGameState));
     		}else if( coordinateValid(direction,x,y) && !resourceAt(x,y) && getUnitAt(myUnits, x, y) == null){
     			Action a = Action.createPrimitiveMove(unit.id, direction);
@@ -308,7 +309,7 @@ public class GameState {
     			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
     			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
     			newActions.putAll(actions);
-    			newActions.put(maxMapIndex + 1, a);
+    			newActions.put(unit.id, a);
     			children.add(new GameStateChild(newActions, newGameState));
     		}
     	}
@@ -316,7 +317,7 @@ public class GameState {
     }
     
     private boolean coordinateValid(Direction direction, int x, int y) {
-		return direction.xComponent() + direction.yComponent() == 1 && x > 0 && y > 0 && x < xExtent && y < yExtent;
+		return Math.abs(direction.xComponent()) + Math.abs(direction.yComponent()) == 1 && x >= 0 && y >= 0 && x < xExtent && y < yExtent;
 	}
 
 	private void separateMMUnits(List<UnitInfo> all, List<UnitInfo> mm, List<UnitInfo> arch){
@@ -387,7 +388,7 @@ public class GameState {
     	}else{
     		ret.addAll(unit1Moves);
     	}
-    	//System.out.println(ret.toString());
+    	System.out.println("Ret size "+ret.size());
     	return ret;
     	
     	
@@ -846,6 +847,7 @@ public class GameState {
     	{
     		for(int j = -1; j<=1; j++)
     		{
+    			if(Math.abs(i)+Math.abs(j) > 1) continue;
     			//Make the map location of this potential succesor
     			MapLocation loc = new MapLocation(current.x+i,current.y+j);
     			//Check if there's anything already in this potential successor
@@ -897,7 +899,7 @@ public class GameState {
      */
     private int hfun(MapLocation start, MapLocation goal)
     {
-    	return Math.max((Math.abs(start.x - goal.x)),(Math.abs(start.y - goal.y)));
+    	return (int)(Math.abs(start.x - goal.x) + Math.abs(start.y - goal.y));
     }
     
     /**

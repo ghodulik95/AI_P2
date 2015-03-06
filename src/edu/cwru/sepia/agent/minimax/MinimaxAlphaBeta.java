@@ -39,7 +39,7 @@ public class MinimaxAlphaBeta extends Agent {
     @Override
     public Map<Integer, Action> middleStep(State.StateView newstate, History.HistoryView statehistory) {
         GameStateChild bestChild = alphaBetaSearch(new GameStateChild(newstate),
-                numPlys,
+                2,
                 Double.NEGATIVE_INFINITY,
                 Double.POSITIVE_INFINITY);
 
@@ -80,7 +80,7 @@ public class MinimaxAlphaBeta extends Agent {
     {
         GameState orig = node.state;
         
-        if(node.action != null && node.action.size() > 0 && (orig.getUtility() == 0 || depth <= 0)){
+        if(node.action != null && (orig.getUtility() == 0 || depth <= 0)){
         	return node;
         }else {
         	List<GameStateChild> children = orig.getChildren();
@@ -137,7 +137,6 @@ public class MinimaxAlphaBeta extends Agent {
     	        }
 
     	});
-    	
     	for(int i = 0; i<children.size(); i++)
     	{
     		double tem = list.get(i);
