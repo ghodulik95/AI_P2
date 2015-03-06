@@ -215,8 +215,8 @@ public class GameState {
     	Stack<MapLocation> f1 = new Stack<MapLocation>();
     	Stack<MapLocation> f2 = new Stack<MapLocation>();
     	MapLocation arch = new MapLocation(0,0);
-    	int s1 = 9999999;
-    	int s2 = 9999999;
+    	int s1 = Integer.MAX_VALUE;
+    	int s2 = mmUnits.size() > 1 ? Integer.MAX_VALUE : 0;
     	for(UnitInfo archInfo : archers)
     	{
     		arch = new MapLocation(archInfo.x,archInfo.y);
@@ -234,6 +234,7 @@ public class GameState {
         		{
         			s2 = f2.size();
         		}
+        		
         	}
     		
     	}
@@ -264,7 +265,7 @@ public class GameState {
     }
   
     
-    private List<GameStateChild> getUnitMoves(UnitInfo unit, GameState gameState, Map<Integer, Action> actions, int maxMapIndex){
+    private List<GameStateChild> getUnitMoves(UnitInfo unit, GameState gameState, Map<Integer, Action> actions){
     	List<GameStateChild> children = new ArrayList<GameStateChild>();
     	if(unit.curHealth == 0){
     		return children;
@@ -272,28 +273,34 @@ public class GameState {
     	List<UnitInfo> enemies = unit.isMMUnit ? gameState.archers : gameState.mmUnits;
     	List<UnitInfo> myUnits = unit.isMMUnit ? gameState.mmUnits : gameState.archers;
     	
+    	UnitInfo closeEnemy = getClosestEnemyWithinRange(unit, enemies);
+    	if(closeEnemy != null){
+    		Action a = Action.createPrimitiveAttack(unit.id, closeEnemy.id);
+			List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
+	    	allUnits.addAll(mmUnits);
+	    	allUnits.addAll(archers);
+			allUnits.remove(closeEnemy);
+			allUnits.add(new UnitInfo(closeEnemy.id, closeEnemy.x, closeEnemy.y, closeEnemy.range, closeEnemy.attk, closeEnemy.curHealth - unit.attk, 
+					closeEnemy.baseHealth, closeEnemy.isMMUnit));
+			
+			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
+			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
+			separateMMUnits(allUnits, newMMUnits, newArchers);
+			
+			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
+			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
+			newActions.putAll(actions);
+			newActions.put(unit.id, a);
+			children.add(new GameStateChild(newActions, newGameState));
+    	}
+    	
     	for(Direction direction: Direction.values()){
     		int x = unit.x + direction.xComponent();
     		int y = unit.y + direction.yComponent();
     		System.out.println("x:+"+direction.xComponent()+" y:"+direction.yComponent());
     		UnitInfo enemy = getUnitAt(enemies, x, y);
     		if(enemy != null){
-    			Action a = Action.createPrimitiveAttack(unit.id, enemy.id);
-    			List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
-    	    	allUnits.addAll(mmUnits);
-    	    	allUnits.addAll(archers);
-    			allUnits.remove(enemy);
-    			allUnits.add(new UnitInfo(enemy.id, enemy.x, enemy.y, enemy.range, enemy.attk, enemy.curHealth - unit.attk, enemy.baseHealth, enemy.isMMUnit));
-    			
-    			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
-    			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
-    			separateMMUnits(allUnits, newMMUnits, newArchers);
-    			
-    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
-    			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
-    			newActions.putAll(actions);
-    			newActions.put(unit.id, a);
-    			children.add(new GameStateChild(newActions, newGameState));
+    			continue;
     		}else if( coordinateValid(direction,x,y) && !resourceAt(x,y) && getUnitAt(myUnits, x, y) == null){
     			Action a = Action.createPrimitiveMove(unit.id, direction);
     			List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
@@ -316,7 +323,24 @@ public class GameState {
     	return children;
     }
     
-    private boolean coordinateValid(Direction direction, int x, int y) {
+    private UnitInfo getClosestEnemyWithinRange(UnitInfo unit,
+			List<UnitInfo> enemies) {
+    	int closestDist = Integer.MAX_VALUE;
+    	UnitInfo closestUnit = null;
+    	int curDist;
+    	UnitInfo curUnit;
+    	System.out.println("Range of unit "+unit.id+" : "+unit.range);
+		for(UnitInfo enemy : enemies){
+			curDist = Math.min( Math.abs(unit.x - enemy.x), Math.abs(unit.y - enemy.y) );
+			if(curDist <= unit.range && curDist < closestDist){
+				closestDist = curDist;
+				closestUnit = enemy;
+			}
+		}
+		return closestUnit;
+	}
+
+	private boolean coordinateValid(Direction direction, int x, int y) {
 		return Math.abs(direction.xComponent()) + Math.abs(direction.yComponent()) == 1 && x >= 0 && y >= 0 && x < xExtent && y < yExtent;
 	}
 
@@ -379,16 +403,18 @@ public class GameState {
     		}
     	}
     	
-    	List<GameStateChild> unit1Moves = getUnitMoves(unit1, this, new HashMap<Integer, Action>(), -1);
+    	List<GameStateChild> unit1Moves = getUnitMoves(unit1, this, new HashMap<Integer, Action>());
     	System.out.println("unit1 size:" +unit1Moves.size());
     	if(unit2 != null){
     		for(GameStateChild child : unit1Moves){
-    			ret.addAll(getUnitMoves(unit2, child.state, child.action, 0));
+    			ret.addAll(getUnitMoves(unit2, child.state, child.action));
     		}
     	}else{
     		ret.addAll(unit1Moves);
     	}
-    	System.out.println("Ret size "+ret.size());
+    	for(GameStateChild returning : ret){
+    		System.out.println(returning.action);
+    	}
     	return ret;
     	
     	
