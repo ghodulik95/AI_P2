@@ -39,7 +39,7 @@ public class MinimaxAlphaBeta extends Agent {
     @Override
     public Map<Integer, Action> middleStep(State.StateView newstate, History.HistoryView statehistory) {
         GameStateChild bestChild = alphaBetaSearch(new GameStateChild(newstate),
-                2,
+                numPlys,
                 Double.NEGATIVE_INFINITY,
                 Double.POSITIVE_INFINITY);
 
@@ -78,31 +78,86 @@ public class MinimaxAlphaBeta extends Agent {
      */
     public GameStateChild alphaBetaSearch(GameStateChild node, int depth, double alpha, double beta)
     {
+    	//System.out.println("Entering depth "+depth);
         GameState orig = node.state;
         
-        if(node.action != null && (orig.getUtility() == 0 || depth <= 0)){
+        GameStateChild bestChild = null;
+        GameStateChild toReturn = null;
+        
+        if(node.action != null && node.action.size() > 0 &&  depth <= 0){
+        	//System.out.println("Returning these actions at terminal: "+node.action);
         	return node;
-        }else {
+        }
+        // New Minimax stuff
+        List<GameStateChild> children = orderChildrenWithHeuristics(orig.getChildren());
+        GameStateChild nextChild = null;
+        
+        if(orig.isMMTurn()){
+        	double newAlpha = alpha;
+        	for(GameStateChild child : children){
+        		nextChild = alphaBetaSearch(child, depth - 1, newAlpha, beta);
+        		if(nextChild == null) break;
+        		double utility = nextChild.state.getUtility();
+        		if(newAlpha < utility){
+        			newAlpha = utility;
+        			bestChild = nextChild;
+        			toReturn = child;
+        		}
+        		//newAlpha = Math.max(newAlpha, nextChild.state.getUtility());
+        		if( beta <= newAlpha )
+        			break;
+            }
+        }else{
+        	double newBeta = beta;
+        	for(GameStateChild child : children){
+        		nextChild = alphaBetaSearch(child, depth - 1, alpha, newBeta);
+        		if(nextChild == null) break;
+        		double utility = nextChild.state.getUtility();
+        		if(newBeta > utility){
+        			newBeta = utility;
+        			bestChild = nextChild;
+        			toReturn = child;
+        		}
+        		//newBeta = Math.min(newBeta, nextChild.state.getUtility());
+        		if( newBeta <= alpha )
+        			break;
+        	}
+         }
+       // return nextChild;
+        
+        
+        //Old stuff that works better	
+        /*else {
         	List<GameStateChild> children = orig.getChildren();
-        	System.out.println(children);
-        	System.out.println(orderChildrenWithHeuristics(children));
+        	//System.out.println(children);
+        	//System.out.println(orderChildrenWithHeuristics(children));
         	GameStateChild toReturn = node;
+        	GameStateChild temp = null;
         	double newUtil = orig.isMMTurn() ? alpha : beta;
         	double childUtil = 100;
         	for( GameStateChild child : children){
         		if(orig.isMMTurn()){
-        			childUtil = alphaBetaSearch(child, depth - 1, newUtil, beta).state.getUtility();
+        			temp = alphaBetaSearch(child, depth - 1, newUtil, beta);
+        			childUtil = temp.state.getUtility();
         		}else{
-        			childUtil = alphaBetaSearch(child, depth - 1, alpha, newUtil).state.getUtility();
+        			temp =  alphaBetaSearch(child, depth - 1, alpha, newUtil);
+        			childUtil = temp.state.getUtility();
         		}
         		if(childUtil >= newUtil == orig.isMMTurn() ){
         			newUtil = childUtil;
         			toReturn = child;
+        			bestChild = temp;
+        		}else{
+        		//	break;
         		}
+        	}*/
+        	//System.out.println("Returning these actions at end: "+toReturn.action);
+        	if(toReturn != null && toReturn.action.size() == 0){
+        		return bestChild;
         	}
         	return toReturn;
         }
-    }
+    
 
     /**
      * You will implement this.
@@ -133,7 +188,7 @@ public class MinimaxAlphaBeta extends Agent {
     	Collections.sort(list, new Comparator<Double>(){
     	        public int compare(Double a, Double b)
     	        {
-    	            return  a.compareTo(b);
+    	            return  -a.compareTo(b);
     	        }
 
     	});
