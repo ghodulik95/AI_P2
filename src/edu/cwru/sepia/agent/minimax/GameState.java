@@ -39,29 +39,6 @@ public class GameState {
 	private GameStateChild parent;
 	private List<GameStateChild> myChildren;
 	
-	private class ResourceInfo{
-		public final int x;
-		public final int y;
-		
-		public ResourceInfo(int x, int y){
-			this.x = x;
-			this.y = y;
-		}
-		
-		@Override
-		public int hashCode(){
-			return Integer.valueOf(x).hashCode() + Integer.valueOf(y).hashCode()*37;
-		}
-		@Override
-		public boolean equals(Object o){
-			if(o instanceof ResourceInfo){
-				ResourceInfo ri = (ResourceInfo) o;
-				return ri.x == x && ri.y == y;
-			}
-			return false;
-		}
-	}
-	
 	private class UnitInfo{
 		public final int id;
 		public final int x;
@@ -211,47 +188,41 @@ public class GameState {
      */
     public double getUtility() {
     	if(resources.size() > 7){
-    	
-    	MapLocation foot1 = new MapLocation(mmUnits.get(0).x,mmUnits.get(0).y);
-    	MapLocation foot2 = null;
-    	if(mmUnits.size()>1)
-    	{
-    		 foot2 = new MapLocation(mmUnits.get(1).x,mmUnits.get(1).y);
-    	}
-    	Stack<MapLocation> f1 = new Stack<MapLocation>();
-    	Stack<MapLocation> f2 = new Stack<MapLocation>();
-    	MapLocation arch = new MapLocation(0,0);
-    	int s1 = Integer.MAX_VALUE;
-    	int s2 = mmUnits.size() > 1 ? Integer.MAX_VALUE : 0;
-    	for(UnitInfo archInfo : archers)
-    	{
-    		arch = new MapLocation(archInfo.x,archInfo.y);
-    		f1 = AstarSearch(foot1, arch, this.xExtent, this.yExtent, null, this.resources);
-    		
-    		
-    		if(f1.size()<s1)
-    		{
-    			s1 = f1.size();
-    		}
-        	if(mmUnits.size()>1)
-        	{
-        		f2 = AstarSearch(foot2, arch, this.xExtent, this.yExtent, null, this.resources);
-        		if(f2.size()<s2)
-        		{
-        			s2 = f2.size();
-        		}
-        		
-        	}
-    		
-    	}
-    	
-    	//if(mmUnits.get(0).id == 0){
-    	//	return -s2;
-    	//}else{
-    	//	return -s1;
-    	//}
-    	
-    	return -(s1 + s2);
+	    	
+	    	MapLocation foot1 = new MapLocation(mmUnits.get(0).x,mmUnits.get(0).y);
+	    	MapLocation foot2 = null;
+	    	if(mmUnits.size()>1)
+	    	{
+	    		 foot2 = new MapLocation(mmUnits.get(1).x,mmUnits.get(1).y);
+	    	}
+	    	Stack<MapLocation> f1 = new Stack<MapLocation>();
+	    	Stack<MapLocation> f2 = new Stack<MapLocation>();
+	    	MapLocation arch = new MapLocation(0,0);
+	    	int s1 = Integer.MAX_VALUE;
+	    	int s2 = mmUnits.size() > 1 ? Integer.MAX_VALUE : 0;
+	    	for(UnitInfo archInfo : archers)
+	    	{
+	    		arch = new MapLocation(archInfo.x,archInfo.y);
+	    		f1 = AstarSearch(foot1, arch, this.xExtent, this.yExtent, null, this.resources);
+	    		
+	    		
+	    		if(f1.size()<s1)
+	    		{
+	    			s1 = f1.size();
+	    		}
+	        	if(mmUnits.size()>1)
+	        	{
+	        		f2 = AstarSearch(foot2, arch, this.xExtent, this.yExtent, null, this.resources);
+	        		if(f2.size()<s2)
+	        		{
+	        			s2 = f2.size();
+	        		}
+	        		
+	        	}
+	    		
+	    	}
+	    	
+	    	return -(s1 + s2);
     	
     	}else{
     		double dist = 0;
@@ -270,21 +241,6 @@ public class GameState {
     	}
 	
 	}
-    	
-    	
-    	
-    	
-    	
-       /* double ret = 0;
-        for(UnitInfo mmInfo: mmUnits){
-        	for(UnitInfo archInfo : archers){
-        		
-        		ret = ret - ( Math.abs(mmInfo.x - archInfo.x) + Math.abs(mmInfo.y - archInfo.y));
-        	}
-        }
-        return ret;
-        */
-    
     
     public boolean isMMTurn(){
     	return this.turnNumber % 2 == 0;
@@ -317,14 +273,8 @@ public class GameState {
 			
 			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1, stateChild);
 			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
-		//	if(unit.isMMUnit && stateChild.action.size() <= stateChild.state.mmUnits.size()){
 				newActions.putAll(stateChild.action);
 			if(unit.isMMUnit)	newActions.put(unit.id, a);
-			//}else if(unit.isMMUnit){
-			//	newActions.put(unit.id,a);
-			//}else{
-			//	newActions.putAll(stateChild.action);
-		//	}
 			children.add(new GameStateChild(newActions, newGameState));
 			System.out.println("Added:"+newActions);
     	}
@@ -332,7 +282,6 @@ public class GameState {
     	for(Direction direction: Direction.values()){
     		int x = unit.x + direction.xComponent();
     		int y = unit.y + direction.yComponent();
-    		//System.out.println("x:+"+direction.xComponent()+" y:"+direction.yComponent());
     		UnitInfo enemy = getUnitAt(enemies, x, y);
     		if(enemy != null){
     			continue;
@@ -347,18 +296,11 @@ public class GameState {
     			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
     			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
     			separateMMUnits(allUnits, newMMUnits, newArchers);
-    			//System.out.println("Num of units: "+allUnits.size()+", "+(newMMUnits.size() + newArchers.size()));
     			
     			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1, stateChild);
     			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
-    		//	if(unit.isMMUnit && stateChild.action.size() <= stateChild.state.mmUnits.size()){
     				newActions.putAll(stateChild.action);
     			if(unit.isMMUnit)	newActions.put(unit.id, a);
-    		//	}else if(unit.isMMUnit){
-    		//		newActions.put(unit.id,a);
-    		//	}else{
-    		//		newActions.putAll(stateChild.action);
-    		//	}
     			children.add(new GameStateChild(newActions, newGameState));
     			System.out.println("Added:"+newActions);
     		}	
@@ -372,7 +314,6 @@ public class GameState {
     	int closestDist = Integer.MAX_VALUE;
     	UnitInfo closestUnit = null;
     	int curDist;
-    	UnitInfo curUnit;
 		for(UnitInfo enemy : enemies){
 			curDist = Math.max( Math.abs(unit.x - enemy.x), Math.abs(unit.y - enemy.y));
 			if(curDist <= unit.range && curDist < closestDist){
@@ -400,19 +341,6 @@ public class GameState {
     private boolean resourceAt(int x, int y){
     	return resources.contains(new MapLocation(x, y));
     }
-    
-    private GameState copy(){
-    	List<UnitInfo> newMM = new ArrayList<UnitInfo>();
-    	for( UnitInfo unit : mmUnits ){
-    		newMM.add(new UnitInfo(unit.id, unit.x, unit.y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, true));
-    	}
-    	List<UnitInfo> newArch = new ArrayList<UnitInfo>();
-    	for( UnitInfo unit : archers ){
-    		newArch.add(new UnitInfo(unit.id, unit.x, unit.y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, true));
-    	}
-    	return null;//new GameState(this.xExtent, this.yExtent, newMM, newArch, resources, turnNumber + 1);
-    }
-
     /**
      * You will implement this function.
      *
@@ -451,7 +379,6 @@ public class GameState {
     	}
 
     	List<GameStateChild> unit1Moves = getUnitMoves(unit1, new GameStateChild(parentAction, this));
-    	//System.out.println("unit1 size:" +unit1Moves.size());
     	if(unit2 != null){
     		for(GameStateChild child : unit1Moves){
     			ret.addAll(getUnitMoves(unit2, new GameStateChild(child.action, child.state)));
@@ -459,76 +386,14 @@ public class GameState {
     	}else{
     		ret.addAll(unit1Moves);
     	}
-    	for(GameStateChild returning : ret){
-    		//System.out.println(returning.action);
-    	}
     	myChildren = ret;
     	return ret;
     	
-    	
-    	/*Map<Integer, Action> actions = new HashMap<Integer, Action>();
-    	Action unit1Actions[] = new Action[10];
-    	UnitInfo unit1Positions[] = new UnitInfo[10];
-    	Action unit2Actions[] = null;
-    	UnitInfo unit2Positions[] = null;
-    	int index = 0;
-    	UnitInfo unit1 = null;
-    	if(isMMTurn()){
-    		unit1 = mmUnits.get(0);
-    	}else{
-    		unit1 = archers.get(0);
-    	}
-    	UnitInfo unit2 = null;
-    	if(mmUnits.size() > 1){
-    		if(isMMTurn()){
-    			unit2 = mmUnits.get(1);
-    		}else{
-    			unit2 = archers.get(1);
-    		}
-    		unit2Actions = new Action[10];
-    		unit2Positions = new UnitInfo[10];
-    	}
-    	for( Direction direction : Direction.values()){
-    		unit1Actions[index] = Action.createPrimitiveMove(unit1.id, direction);
-    		unit1Positions[index] = new UnitInfo(unit1.id, unit1.x + direction.xComponent(), unit1.y + direction.yComponent(), 
-    				unit1.range, unit1.attk, unit1.curHealth, unit2.baseHealth);
-    		if(unit2 != null){
-    			unit2Actions[index] = Action.createPrimitiveMove(unit1.id, direction);
-        		unit2Positions[index] = new UnitInfo(unit2.id, unit2.x + direction.xComponent(), unit2.y + direction.yComponent(), 
-        				unit2.range, unit2.attk, unit2.curHealth, unit2.baseHealth);
-    		}
-    		index++;
-    	}
-    	for(int unit1Move = 0; unit1Move < 10 && unit1Actions[unit1Move] != null; unit1Move++){
-    		Action curUnit1Action = unit1Actions[unit1Move];
-    		UnitInfo nextUnit1 = unit1Positions[unit1Move];
-    		if(unit2 != null){
-	    		for( int unit2Move = 0; unit2Move < 10 && unit2Actions[unit2Move] != null; unit2Move++){
-	    			Action curUnit2Action = unit2Actions[unit2Move];
-	    			UnitInfo nextUnit2 = unit2Positions[unit2Move];
-	    			actions.put(nextUnit1.id, curUnit1Action);
-	    			actions.put(nextUnit2.id, curUnit2Action);
-	    			
-	    			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
-	    			newMMUnits.add(nextUnit1);
-	    			newMMUnits.add(nextUnit2);
-	    			GameStateChild child = new GameStateChild(actions, new GameState(this.xExtent, this.yExtent, newMMUnits, 
-	    					this.archers, this.resources, this.turnNumber + 1));
-	    			ret.add(child);
-	    		}
-    		}else{
-    			actions.put(nextUnit1.id, curUnit1Action);
-    			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
-    			newMMUnits.add(nextUnit1);
-    			GameStateChild child = new GameStateChild(actions, new GameState(this.xExtent, this.yExtent, newMMUnits, 
-    					this.archers, this.resources, this.turnNumber + 1));
-    			ret.add(child);
-    		}
-    		actions.clear();
-    	}
-    	*/
     }
 
+    
+    //All below code is copied and pasted from the last Astar assignment
+    
 	/**
 	 * An abstraction for the map locations
 	 * We implement comparable and override hashCode and equals so that we
