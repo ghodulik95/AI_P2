@@ -235,7 +235,6 @@ public class GameState {
     				}
     			}
     			dist -= minDist;
-    			System.out.println("THIS IS HERE");
     		}
     		return dist;
     	}
@@ -248,8 +247,6 @@ public class GameState {
   
     
     private List<GameStateChild> getUnitMoves(UnitInfo unit, GameStateChild stateChild){
-    	System.out.println("Startingt to get moves.");
-    	System.out.println("Unit:"+unit.id+" , actions:"+stateChild.action);
     	List<GameStateChild> children = new ArrayList<GameStateChild>();
     	if(unit.curHealth == 0){
     		return children;
@@ -276,7 +273,6 @@ public class GameState {
 				newActions.putAll(stateChild.action);
 			if(unit.isMMUnit)	newActions.put(unit.id, a);
 			children.add(new GameStateChild(newActions, newGameState));
-			System.out.println("Added:"+newActions);
     	}
     	
     	for(Direction direction: Direction.values()){
@@ -302,10 +298,8 @@ public class GameState {
     				newActions.putAll(stateChild.action);
     			if(unit.isMMUnit)	newActions.put(unit.id, a);
     			children.add(new GameStateChild(newActions, newGameState));
-    			System.out.println("Added:"+newActions);
     		}	
     	}
-    	System.out.println("Returning: "+children.toString());
     	return children;
     }
     

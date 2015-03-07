@@ -78,17 +78,15 @@ public class MinimaxAlphaBeta extends Agent {
      */
     public GameStateChild alphaBetaSearch(GameStateChild node, int depth, double alpha, double beta)
     {
-    	//System.out.println("Entering depth "+depth);
+    	
         GameState orig = node.state;
         
         GameStateChild bestChild = null;
         GameStateChild toReturn = null;
         
         if(node.action != null && node.action.size() > 0 &&  depth <= 0){
-        	//System.out.println("Returning these actions at terminal: "+node.action);
         	return node;
         }
-        // New Minimax stuff
         List<GameStateChild> children = orderChildrenWithHeuristics(orig.getChildren());
         GameStateChild nextChild = null;
         
@@ -103,7 +101,6 @@ public class MinimaxAlphaBeta extends Agent {
         			bestChild = nextChild;
         			toReturn = child;
         		}
-        		//newAlpha = Math.max(newAlpha, nextChild.state.getUtility());
         		if( beta <= newAlpha )
         			break;
             }
@@ -118,40 +115,10 @@ public class MinimaxAlphaBeta extends Agent {
         			bestChild = nextChild;
         			toReturn = child;
         		}
-        		//newBeta = Math.min(newBeta, nextChild.state.getUtility());
         		if( newBeta <= alpha )
         			break;
         	}
          }
-       // return nextChild;
-        
-        
-        //Old stuff that works better	
-        /*else {
-        	List<GameStateChild> children = orig.getChildren();
-        	//System.out.println(children);
-        	//System.out.println(orderChildrenWithHeuristics(children));
-        	GameStateChild toReturn = node;
-        	GameStateChild temp = null;
-        	double newUtil = orig.isMMTurn() ? alpha : beta;
-        	double childUtil = 100;
-        	for( GameStateChild child : children){
-        		if(orig.isMMTurn()){
-        			temp = alphaBetaSearch(child, depth - 1, newUtil, beta);
-        			childUtil = temp.state.getUtility();
-        		}else{
-        			temp =  alphaBetaSearch(child, depth - 1, alpha, newUtil);
-        			childUtil = temp.state.getUtility();
-        		}
-        		if(childUtil >= newUtil == orig.isMMTurn() ){
-        			newUtil = childUtil;
-        			toReturn = child;
-        			bestChild = temp;
-        		}else{
-        		//	break;
-        		}
-        	}*/
-        	//System.out.println("Returning these actions at end: "+toReturn.action);
         	if(toReturn != null && toReturn.action.size() == 0){
         		return bestChild;
         	}
@@ -181,7 +148,6 @@ public class MinimaxAlphaBeta extends Agent {
     	{
     		GameState g = t.state;
     		Double d = g.getUtility();
-    		System.out.println(d);
     		m.put(d, t);
     		list.add(d);
     	}
