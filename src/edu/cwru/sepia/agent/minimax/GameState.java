@@ -1,23 +1,15 @@
 package edu.cwru.sepia.agent.minimax;
 
 import edu.cwru.sepia.action.Action;
-import edu.cwru.sepia.action.ActionType;
-import edu.cwru.sepia.action.DirectedAction;
-import edu.cwru.sepia.action.LocatedAction;
-import edu.cwru.sepia.action.TargetedAction;
-//import edu.cwru.sepia.agent.AstarAgent.MapLocation;
 import edu.cwru.sepia.environment.model.history.History;
 import edu.cwru.sepia.environment.model.state.ResourceNode.ResourceView;
 import edu.cwru.sepia.environment.model.state.ResourceNode;
 import edu.cwru.sepia.environment.model.state.State;
-import edu.cwru.sepia.environment.model.state.Template.TemplateView;
 import edu.cwru.sepia.environment.model.state.Unit;
 import edu.cwru.sepia.environment.model.state.Unit.UnitView;
 import edu.cwru.sepia.environment.model.state.UnitTemplate.UnitTemplateView;
 import edu.cwru.sepia.util.Direction;
 
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.*;
 
 /**
@@ -30,25 +22,36 @@ import java.util.*;
  */
 public class GameState {
 
+	private static final int PLENTY_OBSTACLES = 6;
+	//We will keep track of the boundaries of the map
 	private int xExtent;
 	private int yExtent;
+	//We will keep track of the minimax units (mmUnits == footmen) and the archers
 	private List<UnitInfo> mmUnits;
 	private List<UnitInfo> archers;
+	//We will keep track of where the resources are
 	private Set<MapLocation> resources;
+	//We will keep track of the turn number
 	private int turnNumber;
-	private GameStateChild parent;
-	private List<GameStateChild> myChildren;
 	
+	/**
+	 * In the UnitInfo class, we store all relevant information on units
+	 */
 	private class UnitInfo{
+		//The unit's id
 		public final int id;
+		//The unit's coordinates
 		public final int x;
 		public final int y;
+		//The unit's stats
 		public final int range;
 		public final int attk;
 		public final int curHealth;
 		public final int baseHealth;
+		//Who's side the unit is on (is it a footman or archer, us or them)
 		public final boolean isMMUnit;
 		
+		//Basic constructor
 		public UnitInfo(int id, int x, int y, int range, int attk, int curHealth, int baseHealth, boolean isMMUnit){
 			this.id = id;
 			this.x = x;
@@ -60,10 +63,13 @@ public class GameState {
 			this.isMMUnit = isMMUnit;
 		}
 		
+		//Returns true if this unit is at the coordinate (x,y)
 		public boolean isAt(int x, int y){
 			return this.x == x && this.y == y;
 		}
-
+		
+		//Two units should be considered the same unit if they have the
+		//same id (even if they are in dirrent spots, have a different HP, etc)
 		@Override
 		public int hashCode(){
 			return Integer.valueOf(id).hashCode();
@@ -80,6 +86,13 @@ public class GameState {
 	}
 	
 
+	/**
+	 * Given a list of units, return the one at (x,y), or null if there is none
+	 * @param units the list on units
+	 * @param x the x coordinate
+	 * @param y the y coordinate
+	 * @return
+	 */
 	public UnitInfo getUnitAt(List<UnitInfo> units, int x, int y) {
 		Iterator<UnitInfo> it = units.iterator();
 		UnitInfo cur;
@@ -92,7 +105,14 @@ public class GameState {
 		return null;
 	}
 	
+	/**
+	 * Takes a list of UnitView's and returns the same in UnitInfo form
+	 * @param units	a list of units
+	 * @param isMMUnits	whether or not the units are minimax units (footmen)
+	 * @return
+	 */
 	private List<UnitInfo> extractUnitInfo(List<UnitView> units, boolean isMMUnits){
+		//Iterate through the list of UnitViews, and build up a list of UnitInfos
 		List<UnitInfo> ret = new LinkedList<UnitInfo>();
 		Iterator<UnitView> it = units.iterator();
 		UnitView cur;
@@ -116,6 +136,7 @@ public class GameState {
 		return ret;
 	}
 	
+	//Extract the MapLocations of the ResourceViews in the state
 	private Set<MapLocation> extractResourceInfo(State.StateView state){
 		Set<MapLocation> ret = new HashSet<MapLocation>();
 		Iterator<Integer> it = state.getAllResourceIds().iterator();
@@ -149,25 +170,85 @@ public class GameState {
      * @param state Current state of the episode
      */
     public GameState(State.StateView state) {
+    	//Get all the information we want
     	xExtent = state.getXExtent();
     	yExtent = state.getYExtent();
     	mmUnits = extractUnitInfo(state.getUnits(0), true);
     	archers = extractUnitInfo(state.getUnits(1), false);
     	resources = extractResourceInfo(state);
     	turnNumber = state.getTurnNumber();
-    	parent = new GameStateChild(new HashMap<Integer, Action>(), this);
     }
     
-    public GameState(int xExtent, int yExtent, List<UnitInfo> mmUnits, List<UnitInfo> archers, Set<MapLocation> resources, int turnNumber, GameStateChild parent){
+    //This is the constructor we primarily use, as the above StateView one is only called once
+    public GameState(int xExtent, int yExtent, List<UnitInfo> mmUnits, List<UnitInfo> archers, Set<MapLocation> resources, int turnNumber){
     	this.xExtent = xExtent;
     	this.yExtent = yExtent;
     	this.mmUnits = mmUnits;
     	this.archers = archers;
     	this.resources = resources;
     	this.turnNumber = turnNumber;
-    	this.parent = parent;
     }
 
+    private double getAstarMinPathSum(){
+    	//Get the locations of the footmen
+    	MapLocation footLocation1 = new MapLocation(mmUnits.get(0).x,mmUnits.get(0).y);
+    	MapLocation footLocation2 = null;
+    	if(mmUnits.size()>1)
+    	{
+    		 footLocation2 = new MapLocation(mmUnits.get(1).x,mmUnits.get(1).y);
+    	}
+    	
+    	//These will be the stacks where the results of AstarSearch is saved
+    	Stack<MapLocation> astarFoot1 = new Stack<MapLocation>();
+    	Stack<MapLocation> astarFoor2 = new Stack<MapLocation>();
+    	
+    	//The current archer
+    	MapLocation archLocation = null;
+    	
+    	//The initial values of s1 and s2 will be MAX, or s2 is 0 if footman 2 is dead
+    	int s1 = Integer.MAX_VALUE;
+    	int s2 = mmUnits.size() > 1 ? Integer.MAX_VALUE : 0;
+    	//Get the minimum astar path length to any archer
+    	for(UnitInfo archInfo : archers)
+    	{
+    		//Get this archer's location and call Astar
+    		archLocation = new MapLocation(archInfo.x,archInfo.y);
+    		astarFoot1 = AstarSearch(footLocation1, archLocation, this.xExtent, this.yExtent, null, this.resources);
+    		
+    		//If the result is less than s1, set s1 t it
+    		if(astarFoot1.size()<s1)
+    		{
+    			s1 = astarFoot1.size();
+    		}
+        	//If the second footman is alive, do the same with s2
+    		if(footLocation2 != null)
+        	{
+        		astarFoor2 = AstarSearch(footLocation2, archLocation, this.xExtent, this.yExtent, null, this.resources);
+        		if(astarFoor2.size()<s2)
+        		{
+        			s2 = astarFoor2.size();
+        		}
+        	}	
+    	}
+    	return -(s1 + s2);
+    }
+    
+    private double minDistanceNegativeSum(){
+    	//Get the minimum distance to an archer for each mmUnit, and return the negative sum
+		double dist = 0;
+		for(UnitInfo mm : mmUnits){
+			double minDist = Double.POSITIVE_INFINITY;
+			for(UnitInfo arch : archers){
+				double curDist = Math.abs(mm.x - arch.x) + Math.abs(mm.y - arch.y);
+				if(curDist < minDist){
+					minDist = curDist;
+				}
+			}
+			dist -= minDist;
+		}
+		return dist;
+    }
+    
     /**
      * You will implement this function.
      *
@@ -187,76 +268,50 @@ public class GameState {
      * @return The weighted linear combination of the features
      */
     public double getUtility() {
-    	if(resources.size() > 7){
-	    	
-	    	MapLocation foot1 = new MapLocation(mmUnits.get(0).x,mmUnits.get(0).y);
-	    	MapLocation foot2 = null;
-	    	if(mmUnits.size()>1)
-	    	{
-	    		 foot2 = new MapLocation(mmUnits.get(1).x,mmUnits.get(1).y);
-	    	}
-	    	Stack<MapLocation> f1 = new Stack<MapLocation>();
-	    	Stack<MapLocation> f2 = new Stack<MapLocation>();
-	    	MapLocation arch = new MapLocation(0,0);
-	    	int s1 = Integer.MAX_VALUE;
-	    	int s2 = mmUnits.size() > 1 ? Integer.MAX_VALUE : 0;
-	    	for(UnitInfo archInfo : archers)
-	    	{
-	    		arch = new MapLocation(archInfo.x,archInfo.y);
-	    		f1 = AstarSearch(foot1, arch, this.xExtent, this.yExtent, null, this.resources);
-	    		
-	    		
-	    		if(f1.size()<s1)
-	    		{
-	    			s1 = f1.size();
-	    		}
-	        	if(mmUnits.size()>1)
-	        	{
-	        		f2 = AstarSearch(foot2, arch, this.xExtent, this.yExtent, null, this.resources);
-	        		if(f2.size()<s2)
-	        		{
-	        			s2 = f2.size();
-	        		}
-	        		
-	        	}
-	    		
-	    	}
-	    	
-	    	return -(s1 + s2);
+    	//We split utility function into two cases:
+    	//	1) There are plenty of obstacles
+    	//			In this case, the utility is -(s1 + s2) where s1 and s2 are the lengths of the shortest paths
+    	//			Of footman 1 and footman 2 (or just one of them if one is dead) to the nearest (path-wise, not distance-wise)
+    	//			archer.
+    	//	2) There are few obstacles
+    	//		In this case, we think it is sufficient to use -(d1 + d2), where d1 and d2 are the distances to the nearest archers
+    	//		for footman 2 and footman 2.
     	
-    	}else{
-    		double dist = 0;
-    		for(UnitInfo mm : mmUnits){
-    			double minDist = Double.POSITIVE_INFINITY;
-    			for(UnitInfo arch : archers){
-    				double curDist = Math.abs(mm.x - arch.x) + Math.abs(mm.y - arch.y);
-    				if(curDist < minDist){
-    					minDist = curDist;
-    				}
-    			}
-    			dist -= minDist;
-    		}
-    		return dist;
+    	//Case 1: if there are more plenty of obstacles (we use the number 6)
+    	if(resources.size() >= PLENTY_OBSTACLES){
+    		//Return the sum of the minimal astar paths from each mmUnit to any archer
+	    	return getAstarMinPathSum();    		
     	}
-	
+    	//Case 2: if there are few obstacles
+    	else{
+    		//return the negative sum of all the closest distances to any archer from each footman
+    		return minDistanceNegativeSum();
+    	}
 	}
     
+    //We will consider even turn numbers to be MAX turns (footmen turns)
     public boolean isMMTurn(){
     	return this.turnNumber % 2 == 0;
     }
   
-    
-    private List<GameStateChild> getUnitMoves(UnitInfo unit, GameStateChild stateChild){
+    /**
+     * Gets the list of	 all possible moves for a unit in a given state
+     * @param unit	the unit
+     * @param preState	the state from before the function call
+     * @return
+     */
+    private List<GameStateChild> getUnitMoves(UnitInfo unit, GameStateChild preState){
+    	//Initialize the return list
     	List<GameStateChild> children = new ArrayList<GameStateChild>();
-    	if(unit.curHealth == 0){
-    		return children;
-    	}
-    	List<UnitInfo> enemies = unit.isMMUnit ? stateChild.state.archers : stateChild.state.mmUnits;
-    	List<UnitInfo> myUnits = unit.isMMUnit ? stateChild.state.mmUnits : stateChild.state.archers;
+    	//Get this units allies and enemies
+    	List<UnitInfo> enemies = unit.isMMUnit ? preState.state.archers : preState.state.mmUnits;
+    	List<UnitInfo> myUnits = unit.isMMUnit ? preState.state.mmUnits : preState.state.archers;
     	
+    	//Get the closest enemy that is in range (or otherwise null)
     	UnitInfo closeEnemy = getClosestEnemyWithinRange(unit, enemies);
+    	//If there is such an enemy, make an attack move for it
     	if(closeEnemy != null){
-    		Action a = Action.createPrimitiveAttack(unit.id, closeEnemy.id);
+    		//Make a list of all units on the map, updating the value of the enemy to have lower hp
 			List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
 	    	allUnits.addAll(mmUnits);
 	    	allUnits.addAll(archers);
@@ -264,53 +319,91 @@ public class GameState {
 			allUnits.add(new UnitInfo(closeEnemy.id, closeEnemy.x, closeEnemy.y, closeEnemy.range, closeEnemy.attk, closeEnemy.curHealth - unit.attk, 
 					closeEnemy.baseHealth, closeEnemy.isMMUnit));
 			
+			//Separate the units into mmUnits and archers
 			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
 			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
 			separateMMUnits(allUnits, newMMUnits, newArchers);
 			
-			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1, stateChild);
+			//Make a new game state and action map for this move
+			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
 			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
-				newActions.putAll(stateChild.action);
-			if(unit.isMMUnit)	newActions.put(unit.id, a);
+			//Inherit parent's actions
+			newActions.putAll(preState.action);
+			//If this is a footman, add this action to the action map as well
+			if(unit.isMMUnit){
+				newActions.put(unit.id, Action.createPrimitiveAttack(unit.id, closeEnemy.id));
+			}
+			//Add this child to the return list
 			children.add(new GameStateChild(newActions, newGameState));
     	}
     	
+    	//For each direction, add a move to the list for any direction we can move to
     	for(Direction direction: Direction.values()){
+    		//Get the new direction
     		int x = unit.x + direction.xComponent();
     		int y = unit.y + direction.yComponent();
-    		UnitInfo enemy = getUnitAt(enemies, x, y);
-    		if(enemy != null){
-    			continue;
-    		}else if( coordinateValid(direction,x,y) && !resourceAt(x,y) && getUnitAt(myUnits, x, y) == null){
-    			Action a = Action.createPrimitiveMove(unit.id, direction);
+    		//If it is valid to move to, make a move for it
+    		if( canMoveTo(x,y,direction,myUnits,enemies) ){
+    			//Make a list of all units, updating this unit to have a new coordinate
     			List<UnitInfo> allUnits = new ArrayList<UnitInfo>();
     	    	allUnits.addAll(mmUnits);
     	    	allUnits.addAll(archers);
     			allUnits.remove(unit);
     			allUnits.add(new UnitInfo(unit.id, x, y, unit.range, unit.attk, unit.curHealth, unit.baseHealth, unit.isMMUnit));
     			
+    			//Separate archers from mmUnits
     			List<UnitInfo> newMMUnits = new LinkedList<UnitInfo>();
     			List<UnitInfo> newArchers = new LinkedList<UnitInfo>();
     			separateMMUnits(allUnits, newMMUnits, newArchers);
     			
-    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1, stateChild);
+    			//Make a new game state and action map for this action
+    			GameState newGameState = new GameState(this.xExtent, this.yExtent, newMMUnits, newArchers, this.resources, this.turnNumber + 1);
     			Map<Integer, Action> newActions = new HashMap<Integer, Action>();
-    				newActions.putAll(stateChild.action);
-    			if(unit.isMMUnit)	newActions.put(unit.id, a);
+    			//Inherit parent's actions
+    			newActions.putAll(preState.action);
+    			if(unit.isMMUnit)	newActions.put(unit.id, Action.createPrimitiveMove(unit.id, direction));
     			children.add(new GameStateChild(newActions, newGameState));
     		}	
     	}
+    	//Return the list of children
     	return children;
     }
     
-    private UnitInfo getClosestEnemyWithinRange(UnitInfo unit,
+    /**
+     * Returns true if (x,y) is a valid location, direction is a valid direction (the assignment specifies we can only move up down left or right
+     * (no diagonals), and also checks to see if there is a unit at (x,y)
+     * @param x the c coord
+     * @param y	the y coord
+     * @param direction	the direction of the move
+     * @param myUnits	the allies of the unit we are checking in regard to
+     * @param enemies	the enemies of the unit we are checking in regard to
+     * @return
+     */
+    private boolean canMoveTo(int x, int y, Direction direction,
+			List<UnitInfo> myUnits, List<UnitInfo> enemies) {
+    	//If the coordinate is valid and contains no resources or units, return true
+    	return coordinateValid(direction,x,y) && !resourceAt(x,y) && getUnitAt(myUnits, x, y) == null &&  getUnitAt(enemies,x,y) == null;
+	}
+
+    /**
+     * Returns a unit in the list of enemies if it is the closest enemy and it is within range
+     * @param unit	the unit we are checking in regard to
+     * @param enemies	the list of unit's enemies
+     * @return
+     */
+	private UnitInfo getClosestEnemyWithinRange(UnitInfo unit,
 			List<UnitInfo> enemies) {
+		//Set the initial closest distance to MAX
     	int closestDist = Integer.MAX_VALUE;
     	UnitInfo closestUnit = null;
     	int curDist;
+    	//Check each enemy
 		for(UnitInfo enemy : enemies){
+			//Get the distance to that enemy
 			curDist = Math.max( Math.abs(unit.x - enemy.x), Math.abs(unit.y - enemy.y));
+			//If it is within range and the closest enemy on record
 			if(curDist <= unit.range && curDist < closestDist){
+				//set closestDist and closestUnit accoridngly
 				closestDist = curDist;
 				closestUnit = enemy;
 			}
@@ -318,11 +411,27 @@ public class GameState {
 		return closestUnit;
 	}
 
+	/**
+	 * Returns true if this location is a valid location on the map, and if the direction is not diagonal
+	 * @param direction	a direction
+	 * @param x	the x coord
+	 * @param y	the y coord
+	 * @return
+	 */
 	private boolean coordinateValid(Direction direction, int x, int y) {
+		//The sum of the absolute values of the components of direction must be 1 in order to not be diagonal
+		//And x and y must be between 0 and x or y extent, respectively
 		return Math.abs(direction.xComponent()) + Math.abs(direction.yComponent()) == 1 && x >= 0 && y >= 0 && x < xExtent && y < yExtent;
 	}
 
+	/**
+	 * Separates a list of mmUnits and archers into the mm list for mmUnits and arch list for archaers
+	 * @param all	all units
+	 * @param mm	Where we want to put the mmUnits
+	 * @param arch	Where we want to put the archers
+	 */
 	private void separateMMUnits(List<UnitInfo> all, List<UnitInfo> mm, List<UnitInfo> arch){
+		//Just loop through and add to the lists accordingly
     	for(UnitInfo u : all){
 			if(u.isMMUnit){
 				mm.add(u);
@@ -332,6 +441,12 @@ public class GameState {
 		}
     }
     
+	/**
+	 * Return true if there is a resource at (x,y)
+	 * @param x
+	 * @param y
+	 * @return
+	 */
     private boolean resourceAt(int x, int y){
     	return resources.contains(new MapLocation(x, y));
     }
@@ -352,37 +467,42 @@ public class GameState {
      * @return All possible actions and their associated resulting game state
      */
     public List<GameStateChild> getChildren() {
-    	List<GameStateChild> ret = new LinkedList<GameStateChild>();
+    	List<GameStateChild> childrenToReturn = new LinkedList<GameStateChild>();
+    	//Get units
     	UnitInfo unit1 = null;
     	UnitInfo unit2 = null;
-    	Map<Integer, Action> parentAction;
+    	//If it is minimax agent's turn (footmen)
     	if(isMMTurn()){
+    		//unit1 is the first footman, and unit 2 is the second if it exists
     		unit1 = mmUnits.get(0);
     		if(mmUnits.size() > 1){
     			unit2 = mmUnits.get(1);
     		}
-
-    		parentAction = new HashMap<Integer, Action>();
-    	}else{
+    	}
+    	//Otherwise unit 1 is archer 1 and unit 2 is archer 2, if it exists
+    	else{
     		unit1 = archers.get(0);
     		if(archers.size() > 1){
     			unit2 = archers.get(1);
     		}
-
-    		parentAction = this.parent.action;
     	}
-
-    	List<GameStateChild> unit1Moves = getUnitMoves(unit1, new GameStateChild(parentAction, this));
+    	
+    	//Get the moves for unit 1
+    	//Note here that it is necessary to get the moves for unit 1 and 2 discretely, or else they might try to do something
+    	//like move to the same space at the same time
+    	List<GameStateChild> unit1Moves = getUnitMoves(unit1, new GameStateChild(new HashMap<Integer, Action>(), this));
+    	//Get the moves for unit2, if there is a unit2, and add them to the return list
     	if(unit2 != null){
     		for(GameStateChild child : unit1Moves){
-    			ret.addAll(getUnitMoves(unit2, new GameStateChild(child.action, child.state)));
+    			childrenToReturn.addAll(getUnitMoves(unit2, new GameStateChild(child.action, child.state)));
     		}
-    	}else{
-    		ret.addAll(unit1Moves);
     	}
-    	myChildren = ret;
-    	return ret;
-    	
+    	//If there is no unit 2, just add all the unit1 moves
+    	else{
+    		childrenToReturn.addAll(unit1Moves);
+    	}
+    	//return the children
+    	return childrenToReturn; 	
     }
 
     
@@ -407,7 +527,7 @@ public class GameState {
         /**
          * Constructor when we only know or only need the x and y coordinates
          * @param x		the x coordinate
-         * @param y		the y coorinate
+         * @param y		the y coordinate
          */
         public MapLocation(int x, int y){
         	this.x = x;
