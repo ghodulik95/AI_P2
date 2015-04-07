@@ -7,7 +7,7 @@ NOTE that when using the visual agent, when we drag the speed towards going very
 
 Please use our code in full, as a signifigant amount of functions were modified in order to make this work. Particularly because of the extra files, so just import the project to get this to run.
 
-use the data/<xmlFileName> tag in the arguments
+use the data/FileName.xml tag in the arguments
 we use main2 as the class to run the code.
 
 We added a couple different files and classes
